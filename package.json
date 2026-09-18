@@ -1,0 +1,21 @@
+{
+  "name": "document-intake-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Conversational document intake assistant with reliable state management",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend run test && vitest run",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
+  }
+}
