@@ -1,40 +1,27 @@
-import express, { Request, Response, NextFunction } from "express";
-import cors from "cors";
+import { FastifyInstance } from "fastify";
+import { createApp } from "./api";
 
-export const app = express();
+const fastifyApp = createApp();
 
-// Global middlewares
-app.use(cors());
-app.use(express.json());
-
-// Health check endpoint (Milestone 01 requirement)
-app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
+// Fastify instance callable wrapper ensuring backward-compatibility with supertest(app)
+// while providing full native FastifyInstance capabilities (inject, listen, register, etc.)
+const handler = (req: unknown, res: unknown) => {
+  fastifyApp.ready().then(() => {
+    (
+      fastifyApp as unknown as { routing: (req: unknown, res: unknown) => void }
+    ).routing(req, res);
   });
-});
+};
 
-// 404 handler adhering to the API Error Contract from ARCHITECTURE.md
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    error: {
-      code: "NOT_FOUND",
-      message: "Resource not found",
-    },
-  });
-});
+export const app = new Proxy(handler, {
+  get(target, prop) {
+    if (prop in target)
+      return (target as unknown as Record<string, unknown>)[prop as string];
+    const val = (fastifyApp as unknown as Record<string, unknown>)[
+      prop as string
+    ];
+    return typeof val === "function" ? val.bind(fastifyApp) : val;
+  },
+}) as unknown as FastifyInstance;
 
-// Centralized error handler adhering to ARCHITECTURE.md
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  // Safe internal server error response
-  res.status(500).json({
-    error: {
-      code: "INTERNAL_SERVER_ERROR",
-      message:
-        process.env.NODE_ENV === "production"
-          ? "An unexpected error occurred"
-          : err.message,
-    },
-  });
-});
+export { createApp };

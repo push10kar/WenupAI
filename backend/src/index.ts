@@ -1,16 +1,18 @@
-import { app } from "./app";
+import { createApp } from "./api";
 import { config } from "./config";
 
-const server = app.listen(config.port, () => {
-  console.log(
-    `Document Intake Assistant Backend listening on port ${config.port} (env: ${config.nodeEnv}, llm: ${config.llmProvider})`,
-  );
-});
+const app = createApp();
 
-// Graceful shutdown handling
-process.on("SIGTERM", () => {
-  console.log("SIGTERM signal received: closing HTTP server");
-  server.close(() => {
-    console.log("HTTP server closed");
-  });
-});
+const start = async () => {
+  try {
+    await app.listen({ port: config.port, host: "0.0.0.0" });
+    console.log(
+      `Document Intake Assistant listening on port ${config.port} (env: ${config.nodeEnv}, llm: ${config.llmProvider})`,
+    );
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+};
+
+start();
