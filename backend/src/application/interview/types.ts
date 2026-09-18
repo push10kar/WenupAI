@@ -7,6 +7,7 @@ import {
   TransitionError,
 } from "../../domain";
 import { LLMClient, Message } from "../../infrastructure";
+import { SessionRepository } from "../repositories";
 
 /**
  * Input payload to process a user message turn in the interview.
@@ -55,6 +56,11 @@ export type InterviewResult =
       readonly status: "PROVIDER_ERROR";
       readonly state: PersonalWishesState;
       readonly error: Error;
+    }
+  | {
+      readonly status: "PERSISTENCE_ERROR";
+      readonly state: PersonalWishesState;
+      readonly error: Error;
     };
 
 /**
@@ -62,4 +68,5 @@ export type InterviewResult =
  */
 export interface InterviewServiceDependencies {
   readonly llmClient: LLMClient;
+  readonly sessionRepository?: SessionRepository;
 }

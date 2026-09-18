@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   PersonalWishesState,
   createInitialState,
@@ -8,6 +9,7 @@ import {
   generateDocument,
 } from "../../domain";
 import { LLMClient, Message } from "../../infrastructure";
+import { PersistenceError, Session, SessionRepository } from "../repositories";
 import {
   InterviewResult,
   InterviewServiceDependencies,
@@ -25,18 +27,121 @@ import {
  * 5. Phase 6 Question Selection (next unresolved question or complete)
  * 6. Phase 7 Document Generation (deterministic draft projection)
  * 7. LLMClient (assistant response generation)
+ * 8. SessionRepository (Phase 10: transactional persistence of canonical state & messages)
  *
  * Invariants:
  * - Application orchestrator only: domain logic lives strictly in domain modules.
  * - Invariant 1: If any stage fails, canonical state remains untouched.
  * - Invariant 2: Candidate updates from LLM are untrusted and must pass validation.
- * - Invariant 3: Stateless with respect to persistence (persistence handled in Phase 10).
+ * - Invariant 3: Persistence is atomic and verified against runtime state schemas.
  */
 export class InterviewService {
   private readonly llmClient: LLMClient;
+  private readonly sessionRepository?: SessionRepository;
 
   constructor(dependencies: InterviewServiceDependencies) {
     this.llmClient = dependencies.llmClient;
+    this.sessionRepository = dependencies.sessionRepository;
+  }
+
+  /**
+   * Creates a new persistent session via the injected SessionRepository.
+   */
+  async createSession(initialState?: PersonalWishesState): Promise<Session> {
+    if (!this.sessionRepository) {
+      throw new PersistenceError(
+        "No SessionRepository configured on InterviewService",
+        "DATABASE_ERROR",
+      );
+    }
+    const state = initialState ?? createInitialState();
+    return await this.sessionRepository.createSession(state);
+  }
+
+  /**
+   * Retrieves an existing session by ID via the injected SessionRepository.
+   */
+  async getSession(sessionId: string): Promise<Session | null> {
+    if (!this.sessionRepository) {
+      throw new PersistenceError(
+        "No SessionRepository configured on InterviewService",
+        "DATABASE_ERROR",
+      );
+    }
+    return await this.sessionRepository.getSession(sessionId);
+  }
+
+  /**
+   * Processes a turn for a persistent session:
+   * 1. Loads session from repository
+   * 2. Runs the conversational turn (extract, validate, detect conflicts, transition, select question, generate document)
+   * 3. If successful: transactionally saves the turn (user message, new state, assistant message) to repository
+   * 4. If any failure occurs: leaves persisted state completely unchanged and returns structured failure
+   */
+  async processSessionMessage(
+    sessionId: string,
+    userMessage: string,
+  ): Promise<InterviewResult> {
+    if (!this.sessionRepository) {
+      throw new PersistenceError(
+        "No SessionRepository configured on InterviewService",
+        "DATABASE_ERROR",
+      );
+    }
+
+    const session = await this.sessionRepository.getSession(sessionId);
+    if (!session) {
+      throw new PersistenceError(
+        `Session '${sessionId}' not found`,
+        "NOT_FOUND",
+      );
+    }
+
+    // Run core turn
+    const result = await this.processMessage({
+      currentState: session.state,
+      conversation: session.messages,
+      userMessage,
+    });
+
+    // If turn resulted in a domain or provider failure, DO NOT mutate persisted state!
+    if (result.status !== "QUESTION" && result.status !== "COMPLETE") {
+      return result;
+    }
+
+    // Turn succeeded -> transactionally persist turn
+    const now = new Date().toISOString();
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: userMessage,
+      createdAt: now,
+    };
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: result.assistantMessage,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await this.sessionRepository.saveTurn(
+        sessionId,
+        userMsg,
+        result.state,
+        assistantMsg,
+        session.version,
+      );
+    } catch (err) {
+      // Invariant: If persistence fails, do NOT report turn as successfully persisted!
+      return {
+        status: "PERSISTENCE_ERROR",
+        state: session.state, // Return original unmutated state
+        error: err instanceof Error ? err : new Error(String(err)),
+      };
+    }
+
+    return result;
   }
 
   /**
