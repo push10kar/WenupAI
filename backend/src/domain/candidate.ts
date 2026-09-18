@@ -1,1 +1,1 @@
-export * from './candidate/index';
+export * from "./candidate/index";

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 import {
   ALLOWED_FIELDS,
   AllowedField,
@@ -8,7 +8,7 @@ import {
   CandidateConfidence,
   CandidateOperation,
   CandidateUpdate,
-} from './types';
+} from "./types";
 
 /**
  * Runtime schema for allowed fields.
@@ -30,28 +30,34 @@ export const confidenceSchema = z.enum(CONFIDENCE_LEVELS);
  * Helper to validate value type conformance for each allowed target field.
  * Enforces strict domain typing without unsafe coercion.
  */
-function validateFieldValueByType(field: AllowedField, value: unknown): { valid: boolean; message: string } {
+function validateFieldValueByType(
+  field: AllowedField,
+  value: unknown,
+): { valid: boolean; message: string } {
   if (value === undefined) {
-    return { valid: false, message: `Field '${field}' requires a defined value` };
+    return {
+      valid: false,
+      message: `Field '${field}' requires a defined value`,
+    };
   }
 
   switch (field) {
-    case 'coversWorldwideAssets':
-    case 'hasChildren':
-      if (typeof value !== 'boolean') {
+    case "coversWorldwideAssets":
+    case "hasChildren":
+      if (typeof value !== "boolean") {
         return {
           valid: false,
           message: `Field '${field}' expects a boolean value, received ${typeof value}`,
         };
       }
-      return { valid: true, message: '' };
+      return { valid: true, message: "" };
 
-    case 'fullName':
-    case 'homeAddress':
-    case 'executor.name':
-    case 'executor.relationship':
-    case 'additionalWishes':
-      if (typeof value !== 'string') {
+    case "fullName":
+    case "homeAddress":
+    case "executor.name":
+    case "executor.relationship":
+    case "additionalWishes":
+      if (typeof value !== "string") {
         return {
           valid: false,
           message: `Field '${field}' expects a string value, received ${typeof value}`,
@@ -63,18 +69,18 @@ function validateFieldValueByType(field: AllowedField, value: unknown): { valid:
           message: `Field '${field}' value cannot be empty or blank`,
         };
       }
-      return { valid: true, message: '' };
+      return { valid: true, message: "" };
 
-    case 'children':
-    case 'specificGifts':
-      if (typeof value === 'string') {
+    case "children":
+    case "specificGifts":
+      if (typeof value === "string") {
         if (value.trim().length === 0) {
           return {
             valid: false,
             message: `Field '${field}' value cannot be empty or blank`,
           };
         }
-        return { valid: true, message: '' };
+        return { valid: true, message: "" };
       }
       if (Array.isArray(value)) {
         if (value.length === 0) {
@@ -84,14 +90,14 @@ function validateFieldValueByType(field: AllowedField, value: unknown): { valid:
           };
         }
         for (let i = 0; i < value.length; i++) {
-          if (typeof value[i] !== 'string' || value[i].trim().length === 0) {
+          if (typeof value[i] !== "string" || value[i].trim().length === 0) {
             return {
               valid: false,
               message: `Field '${field}' array elements must be non-empty strings`,
             };
           }
         }
-        return { valid: true, message: '' };
+        return { valid: true, message: "" };
       }
       return {
         valid: false,
@@ -113,7 +119,7 @@ export const candidateOperationSchema = z
     value: z.unknown(),
     intent: updateIntentSchema.optional(),
     operation: updateIntentSchema.optional(),
-    confidence: confidenceSchema.optional().default('CLEAR'),
+    confidence: confidenceSchema.optional().default("CLEAR"),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -122,8 +128,8 @@ export const candidateOperationSchema = z
     if (!intent) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Candidate operation requires an operation type/intent',
-        path: ['intent'],
+        message: "Candidate operation requires an operation type/intent",
+        path: ["intent"],
       });
     }
 
@@ -131,8 +137,8 @@ export const candidateOperationSchema = z
     if (data.value === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Candidate operation requires a value',
-        path: ['value'],
+        message: "Candidate operation requires a value",
+        path: ["value"],
       });
       return;
     }
@@ -143,16 +149,18 @@ export const candidateOperationSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: check.message,
-        path: ['value'],
+        path: ["value"],
       });
     }
   })
-  .transform((data): CandidateOperation => ({
-    field: data.field,
-    value: data.value,
-    intent: (data.intent ?? data.operation) as UpdateIntent,
-    confidence: data.confidence as CandidateConfidence,
-  }));
+  .transform(
+    (data): CandidateOperation => ({
+      field: data.field,
+      value: data.value,
+      intent: (data.intent ?? data.operation) as UpdateIntent,
+      confidence: data.confidence as CandidateConfidence,
+    }),
+  );
 
 /**
  * Authoritative runtime schema for CandidateUpdate.
@@ -170,8 +178,8 @@ export const candidateUpdateSchema = z
     if (!ops) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'CandidateUpdate must contain an operations or updates array',
-        path: ['operations'],
+        message: "CandidateUpdate must contain an operations or updates array",
+        path: ["operations"],
       });
       return;
     }
@@ -179,8 +187,8 @@ export const candidateUpdateSchema = z
     if (ops.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'CandidateUpdate operations array cannot be empty',
-        path: ['operations'],
+        message: "CandidateUpdate operations array cannot be empty",
+        path: ["operations"],
       });
     }
   })
@@ -203,7 +211,7 @@ export function validateCandidateUpdate(data: unknown): CandidateUpdate {
  * Safe runtime validation for CandidateUpdate returning a safe parse result.
  */
 export function safeValidateCandidateUpdate(
-  data: unknown
+  data: unknown,
 ): ReturnType<typeof candidateUpdateSchema.safeParse> {
   return candidateUpdateSchema.safeParse(data);
 }
@@ -226,7 +234,7 @@ export function validateCandidateOperation(data: unknown): CandidateOperation {
  * Safe runtime validation for an individual CandidateOperation.
  */
 export function safeValidateCandidateOperation(
-  data: unknown
+  data: unknown,
 ): ReturnType<typeof candidateOperationSchema.safeParse> {
   return candidateOperationSchema.safeParse(data);
 }
@@ -234,6 +242,8 @@ export function safeValidateCandidateOperation(
 /**
  * Type guard for an individual CandidateOperation.
  */
-export function isCandidateOperation(data: unknown): data is CandidateOperation {
+export function isCandidateOperation(
+  data: unknown,
+): data is CandidateOperation {
   return candidateOperationSchema.safeParse(data).success;
 }

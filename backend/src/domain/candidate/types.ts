@@ -3,15 +3,15 @@
  * LLM output may only reference these fields; unknown fields must be rejected.
  */
 export const ALLOWED_FIELDS = [
-  'fullName',
-  'homeAddress',
-  'coversWorldwideAssets',
-  'hasChildren',
-  'children',
-  'executor.name',
-  'executor.relationship',
-  'specificGifts',
-  'additionalWishes',
+  "fullName",
+  "homeAddress",
+  "coversWorldwideAssets",
+  "hasChildren",
+  "children",
+  "executor.name",
+  "executor.relationship",
+  "specificGifts",
+  "additionalWishes",
 ] as const;
 
 export type AllowedField = (typeof ALLOWED_FIELDS)[number];
@@ -20,14 +20,14 @@ export type CandidateTargetField = AllowedField;
 /**
  * Allowed operation types (UpdateIntent) according to ARCHITECTURE.md Section 7.5.
  */
-export const UPDATE_INTENTS = ['NEW', 'CORRECTION', 'CLARIFICATION'] as const;
+export const UPDATE_INTENTS = ["NEW", "CORRECTION", "CLARIFICATION"] as const;
 export type UpdateIntent = (typeof UPDATE_INTENTS)[number];
 export type CandidateOperationType = UpdateIntent;
 
 /**
  * Confidence level for candidate updates according to ARCHITECTURE.md Section 7.5.
  */
-export const CONFIDENCE_LEVELS = ['CLEAR', 'AMBIGUOUS'] as const;
+export const CONFIDENCE_LEVELS = ["CLEAR", "AMBIGUOUS"] as const;
 export type CandidateConfidence = (typeof CONFIDENCE_LEVELS)[number];
 
 /**
