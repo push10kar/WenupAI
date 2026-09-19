@@ -92,6 +92,14 @@ export const StatePreview: React.FC<StatePreviewProps> = ({ state }) => {
               field={state.hasChildren}
               renderValue={(v) => (v ? "Yes" : "No")}
             />
+            {state.childrenCount &&
+              state.childrenCount.status !== "UNKNOWN" && (
+                <FieldItem
+                  label="Children Count"
+                  field={state.childrenCount}
+                  renderValue={(v) => (v !== null ? String(v) : "—")}
+                />
+              )}
             {state.hasChildren.value && state.children.length > 0 && (
               <li className="state-field-row state-subfield">
                 <div className="state-field-info">

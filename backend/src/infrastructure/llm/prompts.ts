@@ -15,6 +15,7 @@ CRITICAL RULES:
    - "homeAddress": string (e.g. "42 Park Street, London")
    - "coversWorldwideAssets": boolean (true or false)
    - "hasChildren": boolean (true or false)
+   - "childrenCount": number (e.g. 2)
    - "children": array of strings (e.g. ["Alice", "Bob"])
    - "executor.name": string (e.g. "James")
    - "executor.relationship": string (e.g. "brother", "friend")
@@ -33,8 +34,15 @@ CRITICAL RULES:
    - If the user explicitly refuses to provide the information (e.g. "I'd rather not say", "prefer not to answer"), return {"field": ..., "value": null, "status": "REFUSED", "intent": "NEW", "confidence": "CLEAR"}.
    - NEVER use phrases like "I don't know" or "unknown" as the factual string value.
    - For boolean questions (e.g. "Do you have any children?"), an answer of "No" is a factual false (value: false), NOT a non-answer.
-8. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
-9. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
+8. MULTI-FACT EXTRACTION:
+   - Treat every user response as potentially containing multiple facts.
+   - Extract ALL supported domain fields volunteered in the user's message, even if unprompted by the current question.
+   - Example: if asked for full legal name and user answers "Pushkar Gavade, I have 2 children", extract:
+     * "fullName": "Pushkar Gavade"
+     * "hasChildren": true
+     * "childrenCount": 2
+9. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
+10. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
 
 /**
  * Builds the user prompt payload for candidate extraction.

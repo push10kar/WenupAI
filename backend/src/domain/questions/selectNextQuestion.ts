@@ -56,12 +56,23 @@ export function getUnresolvedFields(
   }
 
   // 4. hasChildren
-  if (!isScalarFieldAddressed(state.hasChildren)) {
+  const hasChildrenAddressed =
+    isScalarFieldAddressed(state.hasChildren) ||
+    (state.childrenCount !== undefined &&
+      state.childrenCount.status === "CONFIRMED" &&
+      typeof state.childrenCount.value === "number");
+
+  const hasChildrenTrue =
+    (state.hasChildren.status === "CONFIRMED" &&
+      state.hasChildren.value === true) ||
+    (state.childrenCount !== undefined &&
+      state.childrenCount.status === "CONFIRMED" &&
+      typeof state.childrenCount.value === "number" &&
+      state.childrenCount.value > 0);
+
+  if (!hasChildrenAddressed) {
     unresolved.push("hasChildren");
-  } else if (
-    state.hasChildren.status === "CONFIRMED" &&
-    state.hasChildren.value === true
-  ) {
+  } else if (hasChildrenTrue) {
     // 5. children (when hasChildren = true)
     // ARCHITECTURE.md Section 13.6 & Section 6.5
     const hasResolvedChildren =

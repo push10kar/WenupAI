@@ -53,6 +53,15 @@ function validateFieldValueByType(
       }
       return { valid: true, message: "" };
 
+    case "childrenCount":
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+        return {
+          valid: false,
+          message: `Field '${field}' expects a non-negative integer, received ${typeof value === "number" ? value : typeof value}`,
+        };
+      }
+      return { valid: true, message: "" };
+
     case "fullName":
     case "homeAddress":
     case "executor.name":

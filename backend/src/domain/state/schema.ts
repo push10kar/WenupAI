@@ -83,6 +83,7 @@ export const personalWishesStateSchema = z
     homeAddress: stringFieldSchema,
     coversWorldwideAssets: booleanFieldSchema,
     hasChildren: booleanFieldSchema,
+    childrenCount: createFieldSchema(z.number().int().nonnegative()).optional(),
     children: z.array(stringFieldSchema),
     executor: executorSchema,
     specificGifts: z.array(stringFieldSchema),

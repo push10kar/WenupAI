@@ -19,6 +19,8 @@ function getScalarFieldFromState(
       return state.coversWorldwideAssets;
     case "hasChildren":
       return state.hasChildren;
+    case "childrenCount":
+      return state.childrenCount;
     case "executor.name":
       return state.executor.name;
     case "executor.relationship":
@@ -114,6 +116,22 @@ export function detectConflicts(
         message:
           "Candidate cannot propose child names when 'hasChildren' is set to false in the same update",
         field: "children",
+        operationIndex: i,
+        candidateOperation: op,
+      });
+    }
+
+    if (
+      op.field === "childrenCount" &&
+      candidateSetsHasChildrenFalse &&
+      typeof op.value === "number" &&
+      op.value > 0
+    ) {
+      conflicts.push({
+        code: "CROSS_FIELD_CONFLICT",
+        message:
+          "Candidate cannot propose childrenCount > 0 when 'hasChildren' is set to false in the same update",
+        field: "childrenCount",
         operationIndex: i,
         candidateOperation: op,
       });

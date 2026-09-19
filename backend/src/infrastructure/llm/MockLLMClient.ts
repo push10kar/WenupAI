@@ -6,7 +6,7 @@ import {
   ResponseGenerationInput,
 } from "./types";
 import { selectNextQuestion } from "../../domain/questions";
-import { CandidateOperation } from "../../domain/candidate";
+import { CandidateOperation, AllowedField } from "../../domain/candidate";
 
 type ExtractionQueueItem =
   | { readonly kind: "result"; readonly data: LLMExtractionResult | unknown }
@@ -153,415 +153,350 @@ export class MockLLMClient implements LLMClient {
   ): LLMExtractionResult {
     const questionResult = selectNextQuestion(input.currentState);
     const rawText = input.latestUserMessage.trim();
+    const activeField =
+      questionResult.status === "QUESTION_AVAILABLE"
+        ? questionResult.question.field
+        : null;
 
-    if (questionResult.status === "QUESTION_AVAILABLE") {
-      const field = questionResult.question.field;
-
-      switch (field) {
-        case "fullName": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "fullName",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "fullName",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const clean = rawText
-            .replace(/^(?:my name is|i am|i'm|call me)\s+/i, "")
-            .trim();
-          const value = clean.length > 0 ? clean : "Arthur Dent";
-          return {
-            updates: [
-              {
-                field: "fullName",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "homeAddress": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "homeAddress",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "homeAddress",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const clean = rawText
-            .replace(/^(?:i live at|my address is)\s+/i, "")
-            .trim();
-          const value =
-            clean.length > 0 ? clean : "42 Country Lane, Cottington";
-          return {
-            updates: [
-              {
-                field: "homeAddress",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "coversWorldwideAssets": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "coversWorldwideAssets",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "coversWorldwideAssets",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(
-            rawText,
-          );
-          const value = !isNegative;
-          return {
-            updates: [
-              {
-                field: "coversWorldwideAssets",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "hasChildren": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "hasChildren",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "hasChildren",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const isNegative =
-            /^(?:no|false|none|nope|n\b|don't|not\b|no children)/i.test(
-              rawText,
-            );
-          const hasChildrenValue = !isNegative;
-          const updates: CandidateOperation[] = [
+    // Handle non-answer / refusal for active question
+    if (activeField) {
+      if (isRefusal(rawText)) {
+        return {
+          updates: [
             {
-              field: "hasChildren",
-              value: hasChildrenValue,
+              field: activeField,
+              value: null,
+              status: "REFUSED",
               intent: "NEW",
               confidence: "CLEAR",
             },
-          ];
+          ],
+        };
+      }
 
-          if (hasChildrenValue) {
-            const extractedChildren = parseChildrenFromText(rawText);
-            if (extractedChildren.length > 0) {
-              updates.push({
-                field: "children",
-                value: extractedChildren,
-                intent: "NEW",
-                confidence: "CLEAR",
-              });
-            }
-          }
-
-          return { updates };
-        }
-
-        case "children": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "children",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "children",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const extractedChildren = parseChildrenFromText(rawText);
-          const value =
-            extractedChildren.length > 0
-              ? extractedChildren
-              : ["Sarah Dent", "John Dent"];
-          return {
-            updates: [
-              {
-                field: "children",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "executor.name": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "executor.name",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "executor.name",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const clean = rawText
-            .replace(
-              /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
-              "",
-            )
-            .trim();
-          const value = clean.length > 0 ? clean : "James Dent";
-          return {
-            updates: [
-              {
-                field: "executor.name",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "executor.relationship": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "executor.relationship",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "executor.relationship",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const clean = rawText
-            .replace(/^(?:he is my|she is my|they are my|my)\s+/i, "")
-            .trim();
-          const value = clean.length > 0 ? clean : "Brother";
-          return {
-            updates: [
-              {
-                field: "executor.relationship",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "specificGifts": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "specificGifts",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "specificGifts",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const value =
-            rawText.length > 0 ? [rawText] : ["Vintage watch to James Dent"];
-          return {
-            updates: [
-              {
-                field: "specificGifts",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
-
-        case "additionalWishes": {
-          if (isRefusal(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "additionalWishes",
-                  value: null,
-                  status: "REFUSED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          if (isNonAnswer(rawText)) {
-            return {
-              updates: [
-                {
-                  field: "additionalWishes",
-                  value: null,
-                  status: "NOT_PROVIDED",
-                  intent: "NEW",
-                  confidence: "CLEAR",
-                },
-              ],
-            };
-          }
-          const value = rawText.length > 0 ? rawText : "No further wishes";
-          return {
-            updates: [
-              {
-                field: "additionalWishes",
-                value,
-                intent: "NEW",
-                confidence: "CLEAR",
-              },
-            ],
-          };
-        }
+      if (isNonAnswer(rawText)) {
+        return {
+          updates: [
+            {
+              field: activeField,
+              value: null,
+              status: "NOT_PROVIDED",
+              intent: "NEW",
+              confidence: "CLEAR",
+            },
+          ],
+        };
       }
     }
 
-    // Interview is already COMPLETE or all fields confirmed:
-    // Update additionalWishes with intent CORRECTION so it passes transition
+    const updates: CandidateOperation[] = [];
+
+    // --- 1. Full Name Extraction ---
+    if (activeField === "fullName") {
+      const namePart = rawText
+        .split(
+          /(?:,|\.|\band\b)\s*(?:i\s+have|my\s+executor|i\s+live|my\s+address|and\s+my\s+executor)/i,
+        )[0]
+        .replace(/^(?:my name is|i am|i'm|call me)\s+/i, "")
+        .trim();
+      const value = namePart.length > 0 ? namePart : "Arthur Dent";
+      updates.push({
+        field: "fullName",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (input.currentState.fullName.status === "UNKNOWN") {
+      const nameMatch = rawText.match(
+        /(?:my\s+name\s+is|i\s+am|i'm)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
+      );
+      if (nameMatch) {
+        updates.push({
+          field: "fullName",
+          value: nameMatch[1].trim(),
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
+    }
+
+    // --- 2. Children Information Extraction ---
+    const hasChildrenNegative =
+      /(?:i\s+(?:do\s+not|don't)\s+have|no|none)\s+(?:any\s+)?(?:children|kids)\b/i.test(
+        rawText,
+      ) ||
+      (activeField === "hasChildren" &&
+        /^(?:no|none|false|nope|n\b|don't|not\b|no children)/i.test(rawText));
+
+    if (hasChildrenNegative) {
+      updates.push({
+        field: "hasChildren",
+        value: false,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+      updates.push({
+        field: "childrenCount",
+        value: 0,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else {
+      const wordToNum: Record<string, number> = {
+        one: 1,
+        two: 2,
+        three: 3,
+        four: 4,
+        five: 5,
+        six: 6,
+        seven: 7,
+        eight: 8,
+        nine: 9,
+        ten: 10,
+      };
+      const countRegex =
+        /(?:i\s+have\s+|there\s+are\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:children|kids)/i;
+      const countMatch = rawText.match(countRegex);
+
+      const hasChildrenAffirmative =
+        Boolean(countMatch) ||
+        /(?:i\s+have\s+children|i\s+have\s+kids)/i.test(rawText) ||
+        (activeField === "hasChildren" &&
+          /^(?:yes|true|yep|y\b|i\s+do)/i.test(rawText));
+
+      if (countMatch) {
+        const count =
+          wordToNum[countMatch[1].toLowerCase()] ?? parseInt(countMatch[1], 10);
+        updates.push({
+          field: "hasChildren",
+          value: true,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+        updates.push({
+          field: "childrenCount",
+          value: count,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      } else if (hasChildrenAffirmative) {
+        updates.push({
+          field: "hasChildren",
+          value: true,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
+
+      // Child names and relationships
+      const extractedChildren = parseChildrenFromText(rawText, activeField);
+      if (extractedChildren.length > 0) {
+        if (!updates.some((u) => u.field === "hasChildren")) {
+          updates.push({
+            field: "hasChildren",
+            value: true,
+            intent: "NEW",
+            confidence: "CLEAR",
+          });
+        }
+        updates.push({
+          field: "children",
+          value: extractedChildren,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+        if (!updates.some((u) => u.field === "childrenCount")) {
+          updates.push({
+            field: "childrenCount",
+            value: extractedChildren.length,
+            intent: "NEW",
+            confidence: "CLEAR",
+          });
+        }
+      } else if (activeField === "children") {
+        updates.push({
+          field: "children",
+          value: ["Sarah Dent", "John Dent"],
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
+    }
+
+    // --- 3. Executor Information Extraction ---
+    const executorNameRegex =
+      /(?:(?:my\s+)?executor\s+(?:is|will\s+be)\s+([A-Za-z\s]+?))(?:\.|$|,|\band\b)/i;
+    const executorNameMatch = rawText.match(executorNameRegex);
+
+    if (executorNameMatch) {
+      const rawName = executorNameMatch[1].trim();
+      const cleanName = rawName
+        .replace(
+          /^(?:my\s+)?(?:brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+/i,
+          "",
+        )
+        .trim();
+      updates.push({
+        field: "executor.name",
+        value: cleanName,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (activeField === "executor.name") {
+      const clean = rawText
+        .replace(
+          /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
+          "",
+        )
+        .trim();
+      const value = clean.length > 0 ? clean : "James Dent";
+      updates.push({
+        field: "executor.name",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    const relMatch = rawText.match(
+      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin))/i,
+    );
+    if (relMatch) {
+      const rel = relMatch[1] || relMatch[2];
+      updates.push({
+        field: "executor.relationship",
+        value: capitalizeWord(rel),
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (activeField === "executor.relationship") {
+      const clean = rawText
+        .replace(/^(?:he is my|she is my|they are my|my)\s+/i, "")
+        .trim();
+      const value = clean.length > 0 ? clean : "Brother";
+      updates.push({
+        field: "executor.relationship",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    // --- 4. Home Address Extraction ---
+    const addressMatch = rawText.match(
+      /(?:i\s+live\s+at|my\s+address\s+is)\s+([^,.]+)/i,
+    );
+    if (activeField === "homeAddress") {
+      const clean = rawText
+        .replace(/^(?:i live at|my address is)\s+/i, "")
+        .trim();
+      const addressClause = clean
+        .split(/(?:,|\.|\band\b)\s*(?:i\s+have|my\s+executor|worldwide)/i)[0]
+        .trim();
+      const value =
+        addressClause.length > 0
+          ? addressClause
+          : "42 Country Lane, Cottington";
+      updates.push({
+        field: "homeAddress",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (
+      addressMatch &&
+      input.currentState.homeAddress.status === "UNKNOWN"
+    ) {
+      updates.push({
+        field: "homeAddress",
+        value: addressMatch[1].trim(),
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    // --- 5. Worldwide Assets Extraction ---
+    const assetsMentioned =
+      /(?:worldwide\s+assets|cover\s+worldwide|assets\s+worldwide)/i.test(
+        rawText,
+      );
+    if (activeField === "coversWorldwideAssets") {
+      const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(rawText);
+      updates.push({
+        field: "coversWorldwideAssets",
+        value: !isNegative,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (
+      assetsMentioned &&
+      input.currentState.coversWorldwideAssets.status === "UNKNOWN"
+    ) {
+      const isNegative =
+        /(?:not\s+worldwide|no\s+worldwide|don't\s+cover\s+worldwide)/i.test(
+          rawText,
+        );
+      updates.push({
+        field: "coversWorldwideAssets",
+        value: !isNegative,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    // --- 6. Specific Gifts Extraction ---
+    if (activeField === "specificGifts") {
+      const value =
+        rawText.length > 0 ? [rawText] : ["Vintage watch to James Dent"];
+      updates.push({
+        field: "specificGifts",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    // --- 7. Additional Wishes Extraction ---
+    if (activeField === "additionalWishes") {
+      const value = rawText.length > 0 ? rawText : "No further wishes";
+      updates.push({
+        field: "additionalWishes",
+        value,
+        intent: "NEW",
+        confidence: "CLEAR",
+      });
+    }
+
+    // Deduplicate updates by field
+    const seen = new Set<string>();
+    const uniqueUpdates: CandidateOperation[] = [];
+    for (const op of updates) {
+      if (!seen.has(op.field)) {
+        seen.add(op.field);
+        uniqueUpdates.push(op);
+      }
+    }
+
+    if (uniqueUpdates.length > 0) {
+      return { updates: uniqueUpdates };
+    }
+
+    // Fallback: If no facts extracted but question is available
+    if (activeField) {
+      const fallbackValue = rawText.length > 0 ? rawText : "Confirmed";
+      return {
+        updates: [
+          {
+            field: activeField,
+            value: fallbackValue,
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+      };
+    }
+
+    // Interview is already complete or no questions remaining
     const value = rawText.length > 0 ? rawText : "No further wishes";
     return {
       updates: [
@@ -719,7 +654,10 @@ export function isNonAnswer(text: string): boolean {
  * - Preserves ambiguity: NEVER invents daughter/son relationships when unstated.
  * - If only count or no names provided ("Yes, I have two children"), returns empty array [].
  */
-function parseChildrenFromText(text: string): string[] {
+function parseChildrenFromText(
+  text: string,
+  activeField?: AllowedField | null,
+): string[] {
   const result: string[] = [];
 
   // 1. Daughter match
@@ -767,10 +705,18 @@ function parseChildrenFromText(text: string): string[] {
     return [];
   }
 
-  // If no explicit relationship phrases, check if names were given
-  let cleaned = text
+  // Check for names after children/kids, or direct response to "children" question
+  const afterChildrenMatch = text.match(
+    /(?:children|kids)(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+(?:named|called)|,)\s*([A-Za-z\s,;]+)/i,
+  );
+  if (!afterChildrenMatch && activeField !== "children") {
+    return [];
+  }
+  const nameSource = afterChildrenMatch ? afterChildrenMatch[1] : text;
+
+  let cleaned = nameSource
     .replace(
-      /^(?:yes[,\s]*)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
+      /^(?:yes[,\s]*)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)?(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
       "",
     )
     .trim();
@@ -788,7 +734,10 @@ function parseChildrenFromText(text: string): string[] {
     .split(/,|;|\band\b/i)
     .map((s) => capitalizeWord(s.trim()))
     .filter(
-      (s) => s.length > 0 && !["Yes", "No", "Children", "Kids"].includes(s),
+      (s) =>
+        s.length > 0 &&
+        !["Yes", "No", "Children", "Kids", "I", "Have"].includes(s) &&
+        !/^\d+$/.test(s),
     );
 
   return Array.from(new Set(parts));

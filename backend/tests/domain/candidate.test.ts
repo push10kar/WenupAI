@@ -117,6 +117,7 @@ describe("Phase 2 — CandidateUpdate Domain Contract", () => {
         { field: "homeAddress", value: "155 Country Lane, Cottington" },
         { field: "coversWorldwideAssets", value: true },
         { field: "hasChildren", value: false },
+        { field: "childrenCount", value: 2 },
         { field: "children", value: ["Ford Prefect", "Trillian Astra"] },
         { field: "executor.name", value: "Slartibartfast" },
         { field: "executor.relationship", value: "Friend" },

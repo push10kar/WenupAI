@@ -12,6 +12,9 @@ export function cloneState(state: PersonalWishesState): PersonalWishesState {
     homeAddress: { ...state.homeAddress },
     coversWorldwideAssets: { ...state.coversWorldwideAssets },
     hasChildren: { ...state.hasChildren },
+    ...(state.childrenCount
+      ? { childrenCount: { ...state.childrenCount } }
+      : {}),
     children: state.children.map((c) => ({ ...c })),
     executor: {
       name: { ...state.executor.name },

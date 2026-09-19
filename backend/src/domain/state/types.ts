@@ -53,6 +53,7 @@ export interface PersonalWishesState {
   homeAddress: Field<string>;
   coversWorldwideAssets: Field<boolean>;
   hasChildren: Field<boolean>;
+  childrenCount?: Field<number>;
   children: Field<string>[];
   executor: Executor;
   specificGifts: Field<string>[];

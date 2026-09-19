@@ -21,6 +21,7 @@ export interface PersonalWishesState {
   readonly homeAddress: Field<string>;
   readonly coversWorldwideAssets: Field<boolean>;
   readonly hasChildren: Field<boolean>;
+  readonly childrenCount?: Field<number>;
   readonly children: readonly Field<string>[];
   readonly executor: ExecutorState;
   readonly specificGifts: readonly Field<string>[];

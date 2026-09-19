@@ -199,7 +199,33 @@ export function applyOperation(
         state.hasChildren.value === false
       ) {
         state.children = [];
+        if (state.childrenCount) {
+          state.childrenCount = { value: 0, status: "CONFIRMED" };
+        }
       }
+      break;
+    }
+
+    case "childrenCount": {
+      if (
+        state.hasChildren.status === "CONFIRMED" &&
+        state.hasChildren.value === false &&
+        typeof op.value === "number" &&
+        op.value > 0
+      ) {
+        return {
+          success: false,
+          error: createTransitionError(
+            "INVARIANT_VIOLATION",
+            "Cannot set childrenCount > 0 when hasChildren is confirmed false",
+            "childrenCount",
+            ["childrenCount"],
+          ),
+        };
+      }
+      const current = state.childrenCount ?? { value: null, status: "UNKNOWN" };
+      const res = transitionScalarField(current, op);
+      state.childrenCount = res.field;
       break;
     }
 

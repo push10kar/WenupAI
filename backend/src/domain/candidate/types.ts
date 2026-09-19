@@ -7,6 +7,7 @@ export const ALLOWED_FIELDS = [
   "homeAddress",
   "coversWorldwideAssets",
   "hasChildren",
+  "childrenCount",
   "children",
   "executor.name",
   "executor.relationship",
