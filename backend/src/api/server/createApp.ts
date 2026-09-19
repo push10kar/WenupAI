@@ -5,7 +5,7 @@ import {
   SQLiteSessionRepository,
   createDatabase,
 } from "../../infrastructure/db";
-import { MockLLMClient } from "../../infrastructure/llm";
+import { createLLMClient } from "../../infrastructure/llm";
 import { config } from "../../config";
 import { errorHandler, notFoundHandler } from "../errors";
 import { healthRoutes, sessionRoutes } from "../routes";
@@ -26,12 +26,7 @@ export function createApp(dependencies: AppDependencies = {}): FastifyInstance {
     dependencies.sessionRepository ??
     new SQLiteSessionRepository(createDatabase(dbPath));
 
-  const llm =
-    dependencies.llmClient ??
-    new MockLLMClient({
-      extractionResponses: [],
-      textResponses: [],
-    });
+  const llm = dependencies.llmClient ?? createLLMClient(config);
 
   const interviewService =
     dependencies.interviewService ??

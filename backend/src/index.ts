@@ -1,5 +1,8 @@
 import { createApp } from "./api";
-import { config } from "./config";
+import { config, validateConfig } from "./config";
+
+// Validate environment configuration for the selected LLM provider at startup
+validateConfig(config);
 
 const app = createApp();
 

@@ -1,6 +1,7 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import { PersistenceError } from "../../application/repositories";
+import { LLMClientError } from "../../infrastructure/llm";
 import { API_ERROR_CODES, ApiErrorResponse } from "./apiError";
 
 /**
@@ -84,6 +85,17 @@ export function errorHandler(
       },
     };
     return reply.status(500).send(payload);
+  }
+
+  // Handle LLM provider errors
+  if (error instanceof LLMClientError) {
+    const payload: ApiErrorResponse = {
+      error: {
+        code: API_ERROR_CODES.PROVIDER_ERROR,
+        message: "The AI service is temporarily unavailable.",
+      },
+    };
+    return reply.status(503).send(payload);
   }
 
   // Handle Fastify 404 (Route not found)
