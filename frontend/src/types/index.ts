@@ -41,11 +41,15 @@ export interface DocumentPreview {
   readonly content: string;
 }
 
+export type MessageRole = "user" | "assistant" | "system";
+export type MessageStatus = "sending" | "sent" | "error" | "streaming";
+
 export interface Message {
   readonly id: string;
-  readonly role: "user" | "assistant";
+  readonly role: MessageRole;
   readonly content: string;
-  readonly createdAt: string;
+  readonly createdAt?: string;
+  readonly status?: MessageStatus;
 }
 
 export interface Session {

@@ -216,6 +216,26 @@ export class MockLLMClient implements LLMClient {
           confidence: "CLEAR",
         });
       }
+    } else if (input.currentState.fullName.status === "CONFIRMED") {
+      const isNameCorrection =
+        /(?:actually|correction|changed|mistake|my real name|correct name)/i.test(
+          rawText,
+        );
+      const nameMatch = rawText.match(
+        /(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*?)(?:\s+(?:and\s+)?(?:i\s+have|my\s+executor|i\s+live|my\s+address|worldwide)|\s+and\s+|[.,;]|$)/i,
+      );
+      if (isNameCorrection && nameMatch && nameMatch[1].trim().length > 0) {
+        updates.push({
+          field: "fullName",
+          value: nameMatch[1]
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(capitalizeWord)
+            .join(" "),
+          intent: "CORRECTION",
+          confidence: "CLEAR",
+        });
+      }
     }
 
     // --- 2. Children Information Extraction ---
@@ -326,7 +346,17 @@ export class MockLLMClient implements LLMClient {
       /(?:(?:my\s+)?executor\s+(?:is|will\s+be)\s+([A-Za-z\s]+?))(?:\.|$|,|\band\b)/i;
     const executorNameMatch = rawText.match(executorNameRegex);
 
-    if (executorNameMatch) {
+    const relMatch = rawText.match(
+      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)[.,!]?$)/i,
+    );
+
+    const isRelationshipOnly =
+      relMatch !== null &&
+      /^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(?:brother|sister|friend|spouse|wife|husband|son|daughter|cousin)(?:\s+(?:will\s+be\s+my\s+executor|is\s+my\s+executor))?[.,!]?$/i.test(
+        rawText.trim(),
+      );
+
+    if (executorNameMatch && !isRelationshipOnly) {
       const rawName = executorNameMatch[1].trim();
       const cleanName = rawName
         .replace(
@@ -334,13 +364,15 @@ export class MockLLMClient implements LLMClient {
           "",
         )
         .trim();
-      updates.push({
-        field: "executor.name",
-        value: cleanName,
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
-    } else if (activeField === "executor.name") {
+      if (cleanName.length > 0) {
+        updates.push({
+          field: "executor.name",
+          value: cleanName,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
+    } else if (activeField === "executor.name" && !isRelationshipOnly) {
       const clean = rawText
         .replace(
           /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
@@ -356,11 +388,8 @@ export class MockLLMClient implements LLMClient {
       });
     }
 
-    const relMatch = rawText.match(
-      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin))/i,
-    );
     if (relMatch) {
-      const rel = relMatch[1] || relMatch[2];
+      const rel = relMatch[1] || relMatch[2] || relMatch[3];
       updates.push({
         field: "executor.relationship",
         value: capitalizeWord(rel),
@@ -381,8 +410,13 @@ export class MockLLMClient implements LLMClient {
     }
 
     // --- 4. Home Address Extraction ---
+    const isAddressCorrection =
+      /(?:actually|correction|i moved|my new address|changed to|rather than|instead of)/i.test(
+        rawText,
+      );
+
     const addressMatch = rawText.match(
-      /(?:i\s+live\s+at|my\s+address\s+is)\s+([^,.]+)/i,
+      /(?:i\s+live\s+at|my\s+address\s+is|address\s+is|moved\s+to)\s+([^,.]+)/i,
     );
     if (activeField === "homeAddress") {
       const clean = rawText
@@ -398,17 +432,30 @@ export class MockLLMClient implements LLMClient {
       updates.push({
         field: "homeAddress",
         value,
-        intent: "NEW",
+        intent: isAddressCorrection ? "CORRECTION" : "NEW",
         confidence: "CLEAR",
       });
     } else if (
       addressMatch &&
       input.currentState.homeAddress.status === "UNKNOWN"
     ) {
+      const cleanAddress = addressMatch[1].replace(/\s+now$/i, "").trim();
       updates.push({
         field: "homeAddress",
-        value: addressMatch[1].trim(),
+        value: cleanAddress,
         intent: "NEW",
+        confidence: "CLEAR",
+      });
+    } else if (
+      addressMatch &&
+      isAddressCorrection &&
+      input.currentState.homeAddress.status === "CONFIRMED"
+    ) {
+      const cleanAddress = addressMatch[1].replace(/\s+now$/i, "").trim();
+      updates.push({
+        field: "homeAddress",
+        value: cleanAddress,
+        intent: "CORRECTION",
         confidence: "CLEAR",
       });
     }
@@ -419,13 +466,26 @@ export class MockLLMClient implements LLMClient {
         rawText,
       );
     if (activeField === "coversWorldwideAssets") {
-      const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(rawText);
-      updates.push({
-        field: "coversWorldwideAssets",
-        value: !isNegative,
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
+      const isAmbiguous =
+        /^(?:everything(?:\s+i\s+own)?(?:\s+should\s+be\s+covered)?|all\s+my\s+(?:assets|stuff|property|things)|all\s+of\s+it)[.,!]?$/i.test(
+          rawText.trim(),
+        );
+      if (isAmbiguous) {
+        updates.push({
+          field: "coversWorldwideAssets",
+          value: true,
+          intent: "NEW",
+          confidence: "AMBIGUOUS",
+        });
+      } else {
+        const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(rawText);
+        updates.push({
+          field: "coversWorldwideAssets",
+          value: !isNegative,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
     } else if (
       assetsMentioned &&
       input.currentState.coversWorldwideAssets.status === "UNKNOWN"

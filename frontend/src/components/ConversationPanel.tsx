@@ -14,40 +14,63 @@ interface ConversationPanelProps {
 
 export const ConversationPanel: React.FC<ConversationPanelProps> = ({
   messages,
+  input = "",
+  onInputChange,
+  onSendMessage,
+  onRestart,
   isLoading,
-  isCompleted,
 }) => {
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading || !onSendMessage) return;
+    onSendMessage();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
-    <div className="conversation-panel flex flex-col h-full bg-white rounded-2xl border border-[#4E1FBE]/15 shadow-aura overflow-hidden">
-      {/* Canvas Top Bar */}
-      <div className="px-5 py-3.5 border-b border-[#4E1FBE]/10 bg-[#FCF6EE]/60 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="size-2 rounded-full bg-[#34c759] ring-2 ring-[#34c759]/20 animate-pulse" />
-          <h2 className="text-sm font-bold text-[#1D1A23] tracking-tight">
-            Active Intake Canvas
-          </h2>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-[#4E1FBE]/15 text-[#494454]">
-            {messages.length} node{messages.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-[#797482]">
-          {isCompleted ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-[11px] text-[#213300] bg-[#EAFF57] px-2 py-0.5 rounded-full border border-[#EAFF57]">
-              ✓ Ready for Final Review
-            </span>
-          ) : (
-            <span className="hidden sm:inline-flex items-center gap-1.5 font-mono text-[11px]">
-              <span className="size-1.5 rounded-full bg-[#4E1FBE]" />
-              Deterministic State
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Canvas Viewport with Dot Grid */}
+    <div className="conversation-panel flex flex-col h-full bg-white rounded-[28px] border-[3px] border-[#4E1FBE] shadow-[0_18px_40px_-18px_rgba(78,31,190,0.22)] overflow-hidden">
       <div className="conversation-messages-container flex-1 overflow-y-auto bg-[#FCF6EE]/40 bg-dot-grid p-3 sm:p-4">
         <MessageList messages={messages} isLoading={isLoading} />
+      </div>
+
+      <div className="border-t border-[#4E1FBE]/15 bg-[#FCF6EE]/60 p-3 sm:p-4 shrink-0">
+        <div className="flex flex-col gap-3">
+          <textarea
+            value={input}
+            onChange={(e) => onInputChange?.(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message..."
+            disabled={isLoading}
+            rows={3}
+            className="w-full resize-none rounded-2xl border border-[#4E1FBE]/20 bg-white px-3 py-3 text-sm text-[#1D1A23] placeholder:text-[#797482] shadow-sm outline-none transition-all focus:border-[#4E1FBE] focus:ring-2 focus:ring-[#4E1FBE]/15 disabled:opacity-60"
+          />
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onRestart}
+              disabled={isLoading}
+              className="flex-1 rounded-xl border border-[#4E1FBE]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[#4E1FBE] transition hover:bg-[#F3ECFF] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              New session
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={!input.trim() || isLoading}
+              className="flex-1 rounded-xl bg-[#4E1FBE] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_20px_-10px_rgba(78,31,190,0.7)] transition hover:bg-[#3d1796] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isLoading ? "Sending..." : "Send"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
