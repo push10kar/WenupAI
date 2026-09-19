@@ -37,12 +37,18 @@ CRITICAL RULES:
 8. MULTI-FACT EXTRACTION:
    - Treat every user response as potentially containing multiple facts.
    - Extract ALL supported domain fields volunteered in the user's message, even if unprompted by the current question.
-   - Example: if asked for full legal name and user answers "Pushkar Gavade, I have 2 children", extract:
+   - Example: if asked for full legal name and user answers "pushkar gavade, i have 2 children", extract:
      * "fullName": "Pushkar Gavade"
      * "hasChildren": true
      * "childrenCount": 2
-9. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
-10. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
+9. FACT EXTRACTION, NOT ANSWER COPYING:
+   - For every extracted operation, "value" MUST represent ONLY the relevant factual value for that specific domain field.
+   - NEVER copy the user's entire response or unrelated clauses into a field value.
+   - For example, if user says "My name is Pushkar Gavade and I have two children" or "pushkar gavade, i have 2 children", the "fullName" value MUST be "Pushkar Gavade", NOT "pushkar gavade, i have 2 children" or "My name is Pushkar Gavade and I have two children".
+   - Unrelated clauses must be excluded or extracted into their own separate operations.
+   - Clean and properly capitalize entity names (e.g. "Pushkar Gavade").
+10. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
+11. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
 
 /**
  * Builds the user prompt payload for candidate extraction.

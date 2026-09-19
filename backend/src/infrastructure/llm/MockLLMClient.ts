@@ -193,13 +193,7 @@ export class MockLLMClient implements LLMClient {
 
     // --- 1. Full Name Extraction ---
     if (activeField === "fullName") {
-      const namePart = rawText
-        .split(
-          /(?:,|\.|\band\b)\s*(?:i\s+have|my\s+executor|i\s+live|my\s+address|and\s+my\s+executor)/i,
-        )[0]
-        .replace(/^(?:my name is|i am|i'm|call me)\s+/i, "")
-        .trim();
-      const value = namePart.length > 0 ? namePart : "Arthur Dent";
+      const value = extractNameFact(rawText);
       updates.push({
         field: "fullName",
         value,
@@ -208,12 +202,16 @@ export class MockLLMClient implements LLMClient {
       });
     } else if (input.currentState.fullName.status === "UNKNOWN") {
       const nameMatch = rawText.match(
-        /(?:my\s+name\s+is|i\s+am|i'm)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
+        /(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*?)(?:\s+(?:and\s+)?(?:i\s+have|my\s+executor|i\s+live|my\s+address|worldwide)|\s+and\s+|[.,;]|$)/i,
       );
-      if (nameMatch) {
+      if (nameMatch && nameMatch[1].trim().length > 0) {
         updates.push({
           field: "fullName",
-          value: nameMatch[1].trim(),
+          value: nameMatch[1]
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(capitalizeWord)
+            .join(" "),
           intent: "NEW",
           confidence: "CLEAR",
         });
@@ -644,6 +642,69 @@ export function isNonAnswer(text: string): boolean {
     /^n\/a$/,
   ];
   return nonAnswerPatterns.some((p) => p.test(norm));
+}
+
+/**
+ * Extracts only the full legal name fact from a user message, excluding unrelated clauses
+ * and ensuring proper capitalization.
+ */
+function extractNameFact(rawText: string): string {
+  // 1. Explicit intro phrase: "My full name is Pushkar Gavade and I have two children."
+  const introMatch = rawText.match(
+    /(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm|call\s+me|name\s+is)\s+([A-Za-z'-]+(?:\s+[A-Za-z'-]+)*?)(?:\s+(?:and\s+)?(?:i\s+have|my\s+executor|i\s+live|my\s+address|worldwide)|\s+and\s+|[.,;]|$)/i,
+  );
+  if (introMatch && introMatch[1].trim().length > 0) {
+    return introMatch[1]
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(capitalizeWord)
+      .join(" ");
+  }
+
+  // 2. Fact clause isolation: remove known non-name domain clauses
+  let isolated = rawText;
+  // Remove executor clauses
+  isolated = isolated.replace(
+    /(?:and\s+)?(?:my\s+)?executor\s+(?:is|will\s+be)\s+[A-Za-z\s'-]+(?:\.|$|,|;)/gi,
+    " ",
+  );
+  // Remove children clauses
+  isolated = isolated.replace(
+    /(?:and\s+)?(?:i\s+have\s+|there\s+are\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:children|kids)[^.,;]*/gi,
+    " ",
+  );
+  isolated = isolated.replace(
+    /(?:and\s+)?(?:my\s+)?(?:daughters?|sons?)\s+(?:name\s+is|is)\s+[A-Za-z'-]+(?:\.|$|,|;)/gi,
+    " ",
+  );
+  isolated = isolated.replace(
+    /(?:and\s+)?(?:i\s+have\s+no|no|none)\s+(?:children|kids)[^.,;]*/gi,
+    " ",
+  );
+  // Remove address clauses
+  isolated = isolated.replace(
+    /(?:and\s+)?(?:i\s+live\s+at|my\s+address\s+is)\s+[^.,;]+/gi,
+    " ",
+  );
+  // Clean punctuation and conjunctions
+  isolated = isolated.replace(/^[,\s.;]+|[,\s.;]+$/g, "").trim();
+  isolated = isolated.replace(/^(?:and|also)\s+/i, "").trim();
+  isolated = isolated
+    .replace(
+      /^(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm|call\s+me)\s+/i,
+      "",
+    )
+    .trim();
+
+  // If isolated is non-empty and contains words
+  const words = isolated
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !/^(?:and|i|have|the|with)$/i.test(w));
+  if (words.length > 0) {
+    return words.map(capitalizeWord).join(" ");
+  }
+
+  return "Arthur Dent";
 }
 
 /**

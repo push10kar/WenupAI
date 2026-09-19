@@ -25,18 +25,20 @@ describe("Unsolicited Multi-Fact Intake & Reliability Regression", () => {
       const mockLLM = new MockLLMClient();
       const service = new InterviewService({ llmClient: mockLLM });
 
-      // Turn 1: User provides name + volunteered children count
+      // Turn 1: User provides name + volunteered children count (lowercase input)
       const turn1 = await service.processMessage({
         currentState: initialState,
         conversation: [],
-        userMessage: "Pushkar Gavade, I have 2 children.",
+        userMessage: "pushkar gavade, i have 2 children",
       });
 
       expect(turn1.status).toBe("QUESTION");
       if (turn1.status === "QUESTION") {
         // 1. Candidate extraction & canonical state persistence
+        const fullLegalName = turn1.state.fullName.value;
+        expect(fullLegalName).not.toBe("pushkar gavade, i have 2 children");
+        expect(fullLegalName).toBe("Pushkar Gavade");
         expect(turn1.state.fullName.status).toBe("CONFIRMED");
-        expect(turn1.state.fullName.value).toBe("Pushkar Gavade");
 
         expect(turn1.state.hasChildren.status).toBe("CONFIRMED");
         expect(turn1.state.hasChildren.value).toBe(true);
@@ -101,6 +103,31 @@ describe("Unsolicited Multi-Fact Intake & Reliability Regression", () => {
         expect(turn3.question.prompt).toBe(
           "What are the names of your children?",
         );
+      }
+    });
+
+    it("performs fact extraction (not answer copying) for natural language phrases like 'My full name is Pushkar Gavade and I have two children.'", async () => {
+      const initialState = createInitialState();
+      const mockLLM = new MockLLMClient();
+      const service = new InterviewService({ llmClient: mockLLM });
+
+      const turn = await service.processMessage({
+        currentState: initialState,
+        conversation: [],
+        userMessage: "My full name is Pushkar Gavade and I have two children.",
+      });
+
+      expect(turn.status).toBe("QUESTION");
+      if (turn.status === "QUESTION") {
+        const fullLegalName = turn.state.fullName.value;
+        expect(fullLegalName).not.toBe(
+          "My full name is Pushkar Gavade and I have two children.",
+        );
+        expect(fullLegalName).toBe("Pushkar Gavade");
+        expect(turn.state.fullName.status).toBe("CONFIRMED");
+
+        expect(turn.state.hasChildren.value).toBe(true);
+        expect(turn.state.childrenCount?.value).toBe(2);
       }
     });
   });
