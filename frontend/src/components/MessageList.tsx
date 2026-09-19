@@ -31,7 +31,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <div
-      className="flex flex-col gap-4 py-2"
+      className="flex flex-col gap-4 py-4 px-2"
       role="log"
       aria-label="Interview conversation messages"
       aria-live="polite"
@@ -49,13 +49,13 @@ export const MessageList: React.FC<MessageListProps> = ({
           <Message
             key={msg.id}
             align={isUser ? "end" : "start"}
-            className="gap-2"
+            className="gap-2.5"
           >
             {!isUser && (
               <MessageAvatar className="size-8 shrink-0">
-                <Avatar className="size-8 ring-1 ring-border shadow-xs">
+                <Avatar className="size-8 ring-1 ring-[#4E1FBE]/25 shadow-xs bg-[#E2D6FF]">
                   <AvatarImage src={ASSISTANT_AVATAR_URL} alt="Assistant" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  <AvatarFallback className="bg-[#E2D6FF] text-[#360097] text-xs font-bold">
                     AI
                   </AvatarFallback>
                 </Avatar>
@@ -63,22 +63,25 @@ export const MessageList: React.FC<MessageListProps> = ({
             )}
 
             <MessageContent className={isUser ? "items-end" : "items-start"}>
-              <MessageHeader className="text-xs font-medium text-muted-foreground px-1 mb-1">
-                {isUser ? "You" : "Intake Assistant"}
+              <MessageHeader className="text-[11px] font-semibold text-[#494454] px-1 mb-1 flex items-center gap-1.5">
+                <span>{isUser ? "You" : "Intake Assistant"}</span>
+                {!isUser && (
+                  <span className="size-1 rounded-full bg-[#34c759]" />
+                )}
               </MessageHeader>
 
               <div
-                className={`w-fit max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-xs ${
+                className={`w-fit max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   isUser
-                    ? "rounded-br-xs bg-primary text-primary-foreground font-normal"
-                    : "rounded-bl-xs bg-muted text-foreground border border-border/50 font-normal"
+                    ? "rounded-br-xs bg-[#4E1FBE] text-white font-medium shadow-aura"
+                    : "rounded-bl-xs bg-white text-[#1D1A23] border border-[#4E1FBE]/15 font-normal shadow-xs"
                 }`}
               >
                 {msg.content}
               </div>
 
               {formattedTime && (
-                <MessageFooter className="text-[10px] text-muted-foreground px-1 mt-0.5">
+                <MessageFooter className="text-[10px] text-[#797482] px-1 mt-0.5 font-mono">
                   {formattedTime}
                 </MessageFooter>
               )}
@@ -86,9 +89,9 @@ export const MessageList: React.FC<MessageListProps> = ({
 
             {isUser && (
               <MessageAvatar className="size-8 shrink-0">
-                <Avatar className="size-8 ring-1 ring-primary/20 shadow-xs">
+                <Avatar className="size-8 ring-1 ring-[#4E1FBE]/30 shadow-xs bg-[#FCF6EE]">
                   <AvatarImage src={USER_AVATAR_URL} alt="User" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                  <AvatarFallback className="bg-[#4E1FBE] text-white text-xs font-bold">
                     U
                   </AvatarFallback>
                 </Avatar>
@@ -99,29 +102,29 @@ export const MessageList: React.FC<MessageListProps> = ({
       })}
 
       {isLoading && (
-        <Message align="start" className="gap-2">
+        <Message align="start" className="gap-2.5">
           <MessageAvatar className="size-8 shrink-0">
-            <Avatar className="size-8 ring-1 ring-border shadow-xs">
+            <Avatar className="size-8 ring-1 ring-[#4E1FBE]/25 shadow-xs bg-[#E2D6FF]">
               <AvatarImage src={ASSISTANT_AVATAR_URL} alt="Assistant" />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+              <AvatarFallback className="bg-[#E2D6FF] text-[#360097] text-xs font-bold">
                 AI
               </AvatarFallback>
             </Avatar>
           </MessageAvatar>
 
           <MessageContent className="items-start">
-            <MessageHeader className="text-xs font-medium text-muted-foreground px-1 mb-1">
+            <MessageHeader className="text-[11px] font-semibold text-[#494454] px-1 mb-1">
               Intake Assistant
             </MessageHeader>
 
             <div
-              className="w-fit rounded-2xl rounded-bl-xs bg-muted px-4 py-3 border border-border/50 shadow-xs"
+              className="w-fit rounded-2xl rounded-bl-xs bg-white px-4 py-3 border border-[#4E1FBE]/15 shadow-xs"
               aria-label="Assistant is analyzing your answer"
             >
-              <div className="typing-indicator flex gap-1 items-center">
-                <span />
-                <span />
-                <span />
+              <div className="typing-indicator flex gap-1.5 items-center">
+                <span className="size-1.5 rounded-full bg-[#4E1FBE]" />
+                <span className="size-1.5 rounded-full bg-[#4E1FBE]" />
+                <span className="size-1.5 rounded-full bg-[#4E1FBE]" />
               </div>
             </div>
           </MessageContent>

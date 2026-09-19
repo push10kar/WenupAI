@@ -7,3 +7,4 @@ export * from "./DocumentPreview";
 export * from "./InformationPanel";
 export * from "./CompletionView";
 export * from "./ConversationPanel";
+export * from "./LandingView";

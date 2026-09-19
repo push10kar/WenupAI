@@ -18,17 +18,23 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
   return (
     <div
       role="alert"
-      className={`error-banner ${isConflict ? "error-banner-conflict" : "error-banner-general"}`}
+      className={`error-banner mx-4 sm:mx-6 my-3 p-4 rounded-xl border flex items-start justify-between gap-4 shadow-sm transition-all ${
+        isConflict
+          ? "bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]"
+          : "bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]"
+      }`}
     >
-      <div className="error-banner-content">
-        <strong className="error-banner-title">
-          {isConflict ? "Clarification / Conflict Detected" : "Error"}
-        </strong>
-        <p className="error-banner-message">
+      <div className="error-banner-content flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-bold">{isConflict ? "✦" : "⚠"}</span>
+          <strong className="error-banner-title text-xs font-bold uppercase tracking-wider">
+            {isConflict ? "Clarification / Conflict Detected" : "Error"}
+          </strong>
+        </div>
+        <p className="error-banner-message text-xs leading-relaxed opacity-95">
           {error.message}
           {isConflict && (
-            <span className="conflict-guidance">
-              {" "}
+            <span className="conflict-guidance italic ml-1">
               If you intend to update or correct previous information, please
               specify that explicitly (e.g., &quot;Actually, my address changed
               to...&quot;).
@@ -39,7 +45,7 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
       <button
         type="button"
         onClick={onDismiss}
-        className="error-banner-dismiss"
+        className="error-banner-dismiss text-lg font-bold leading-none p-1 hover:opacity-100 opacity-60 transition-opacity cursor-pointer"
         aria-label="Dismiss error notification"
       >
         &times;
