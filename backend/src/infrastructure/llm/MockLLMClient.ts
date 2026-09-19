@@ -6,6 +6,7 @@ import {
   ResponseGenerationInput,
 } from "./types";
 import { selectNextQuestion } from "../../domain/questions";
+import { CandidateOperation } from "../../domain/candidate";
 
 type ExtractionQueueItem =
   | { readonly kind: "result"; readonly data: LLMExtractionResult | unknown }
@@ -214,38 +215,42 @@ export class MockLLMClient implements LLMClient {
             /^(?:no|false|none|nope|n\b|don't|not\b|no children)/i.test(
               rawText,
             );
-          const value = !isNegative;
-          return {
-            updates: [
-              {
-                field: "hasChildren",
-                value,
+          const hasChildrenValue = !isNegative;
+          const updates: CandidateOperation[] = [
+            {
+              field: "hasChildren",
+              value: hasChildrenValue,
+              intent: "NEW",
+              confidence: "CLEAR",
+            },
+          ];
+
+          if (hasChildrenValue) {
+            const extractedChildren = parseChildrenFromText(rawText);
+            if (extractedChildren.length > 0) {
+              updates.push({
+                field: "children",
+                value: extractedChildren,
                 intent: "NEW",
                 confidence: "CLEAR",
-              },
-            ],
-          };
+              });
+            }
+          }
+
+          return { updates };
         }
 
         case "children": {
-          let names: string[];
-          if (rawText.length > 0) {
-            names = rawText
-              .split(/,|;|\band\b/i)
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0);
-            if (names.length === 0) {
-              names = [rawText];
-            }
-          } else {
-            names = ["Sarah Dent", "John Dent"];
-          }
-          const uniqueNames = Array.from(new Set(names));
+          const extractedChildren = parseChildrenFromText(rawText);
+          const value =
+            extractedChildren.length > 0
+              ? extractedChildren
+              : ["Sarah Dent", "John Dent"];
           return {
             updates: [
               {
                 field: "children",
-                value: uniqueNames,
+                value,
                 intent: "NEW",
                 confidence: "CLEAR",
               },
@@ -390,4 +395,93 @@ export class MockLLMClient implements LLMClient {
     this.extractionCalls.length = 0;
     this.textCalls.length = 0;
   }
+}
+
+function capitalizeWord(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+/**
+ * Extracts child names and explicit relationships (daughter/son) from conversational text.
+ * Invariants:
+ * - If explicit relationships are stated ("my daughter Sarah", "the sons name is Bob"),
+ *   formats as "Name (daughter)" / "Name (son)".
+ * - If only names are stated without relationships ("Sarah and Bob"), returns plain names ["Sarah", "Bob"].
+ * - Preserves ambiguity: NEVER invents daughter/son relationships when unstated.
+ * - If only count or no names provided ("Yes, I have two children"), returns empty array [].
+ */
+function parseChildrenFromText(text: string): string[] {
+  const result: string[] = [];
+
+  // 1. Daughter match
+  const daughterMatch =
+    text.match(
+      /(?:(?:the\s+)?daughters?(?:'s)?(?:\s+name)?(?:\s+is)?\s+([A-Za-z]+))/i,
+    ) ||
+    text.match(/my\s+daughter\s+(?:is\s+)?([A-Za-z]+)/i) ||
+    text.match(/([A-Za-z]+)\s+is\s+my\s+daughter/i);
+
+  if (daughterMatch) {
+    const name = daughterMatch[1];
+    if (
+      name &&
+      !["is", "the", "my", "name", "a"].includes(name.toLowerCase())
+    ) {
+      result.push(`${capitalizeWord(name)} (daughter)`);
+    }
+  }
+
+  // 2. Son match
+  const sonMatch =
+    text.match(
+      /(?:(?:the\s+)?sons?(?:'s)?(?:\s+name)?(?:\s+is)?\s+([A-Za-z]+))/i,
+    ) ||
+    text.match(/my\s+son\s+(?:is\s+)?([A-Za-z]+)/i) ||
+    text.match(/([A-Za-z]+)\s+is\s+my\s+son/i);
+
+  if (sonMatch) {
+    const name = sonMatch[1];
+    if (
+      name &&
+      !["is", "the", "my", "name", "a"].includes(name.toLowerCase())
+    ) {
+      result.push(`${capitalizeWord(name)} (son)`);
+    }
+  }
+
+  if (result.length > 0) {
+    return Array.from(new Set(result));
+  }
+
+  // If input is negative, no children
+  if (/^(?:no|none|false)/i.test(text.trim()) || /no\s+children/i.test(text)) {
+    return [];
+  }
+
+  // If no explicit relationship phrases, check if names were given
+  let cleaned = text
+    .replace(
+      /^(?:yes[,\s]*)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
+      "",
+    )
+    .trim();
+  cleaned = cleaned.replace(/\.$/, "").trim();
+
+  // If the cleaned text is empty or just says "yes" or numbers or "i have children", no names were provided
+  if (
+    !cleaned ||
+    /^(?:yes|no|none|\d+|one|two|three|i have \d+ children)$/i.test(cleaned)
+  ) {
+    return [];
+  }
+
+  const parts = cleaned
+    .split(/,|;|\band\b/i)
+    .map((s) => capitalizeWord(s.trim()))
+    .filter(
+      (s) => s.length > 0 && !["Yes", "No", "Children", "Kids"].includes(s),
+    );
+
+  return Array.from(new Set(parts));
 }

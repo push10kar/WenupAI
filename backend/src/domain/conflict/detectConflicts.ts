@@ -157,6 +157,62 @@ export function detectConflicts(
       }
     }
 
+    // --- Check 3b: State-Dependent Array Value Contradiction for 'children' ---
+    if (op.field === "children") {
+      const confirmedChildren = state.children.filter(
+        (c) => c.status === "CONFIRMED" && c.value !== null,
+      );
+      if (confirmedChildren.length > 0 && op.intent === "NEW") {
+        const existingNames = confirmedChildren.map((c) => c.value as string);
+        const incomingNames = Array.isArray(op.value)
+          ? (op.value as string[])
+          : [String(op.value)];
+
+        // Check if incoming names differ from existing confirmed names
+        const isIdentical =
+          existingNames.length === incomingNames.length &&
+          existingNames.every(
+            (val, idx) =>
+              val.toLowerCase() === (incomingNames[idx] || "").toLowerCase(),
+          );
+
+        if (!isIdentical) {
+          conflicts.push({
+            code: "STATE_VALUE_CONFLICT",
+            message: `New information for 'children' conflicts with confirmed state children [${existingNames.join(
+              ", ",
+            )}]. Requires explicit correction or clarification.`,
+            field: "children",
+            operationIndex: i,
+            candidateOperation: op,
+            conflictingState: {
+              value: existingNames,
+              status: "CONFIRMED",
+            },
+          });
+        }
+      }
+
+      // If children has conflicted items, new information requires clarification or correction
+      const hasConflictedChildren = state.children.some(
+        (c) => c.status === "CONFLICTED",
+      );
+      if (hasConflictedChildren && op.intent === "NEW") {
+        conflicts.push({
+          code: "UNRESOLVED_STATE_CONFLICT",
+          message:
+            "Field 'children' is currently CONFLICTED in state and requires clarification or correction",
+          field: "children",
+          operationIndex: i,
+          candidateOperation: op,
+          conflictingState: {
+            value: state.children.map((c) => c.value),
+            status: "CONFLICTED",
+          },
+        });
+      }
+    }
+
     // --- Check 4: State-Dependent Cross-Field Conflict (ARCHITECTURE.md Section 8.7) ---
     if (op.field === "children") {
       const stateHasChildrenConfirmedFalse =
