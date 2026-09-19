@@ -49,3 +49,25 @@ export function createInitialState(): PersonalWishesState {
     additionalWishes: createUnknownField<string>(),
   };
 }
+
+/**
+ * Creates a deep copy of a PersonalWishesState ensuring no shared references.
+ */
+export function cloneState(state: PersonalWishesState): PersonalWishesState {
+  return {
+    fullName: { ...state.fullName },
+    homeAddress: { ...state.homeAddress },
+    coversWorldwideAssets: { ...state.coversWorldwideAssets },
+    hasChildren: { ...state.hasChildren },
+    ...(state.childrenCount
+      ? { childrenCount: { ...state.childrenCount } }
+      : {}),
+    children: state.children.map((c) => ({ ...c })),
+    executor: {
+      name: { ...state.executor.name },
+      relationship: { ...state.executor.relationship },
+    },
+    specificGifts: state.specificGifts.map((g) => ({ ...g })),
+    additionalWishes: { ...state.additionalWishes },
+  };
+}

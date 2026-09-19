@@ -10,6 +10,7 @@ import {
   createUnconfirmedField,
   createConflictedField,
   FIELD_STATUSES,
+  cloneState,
 } from "../../src/domain";
 
 describe("Domain Foundation — PersonalWishesState", () => {
@@ -270,6 +271,132 @@ describe("Domain Foundation — PersonalWishesState", () => {
         "NOT_PROVIDED",
         "REFUSED",
       ]);
+    });
+  });
+
+  describe("State Isolation", () => {
+    it("ensures two distinct calls to createInitialState return independent mutable objects", () => {
+      const stateA = createInitialState();
+      const stateB = createInitialState();
+
+      // Mutate stateA scalar field
+      stateA.fullName = createConfirmedField("Alice");
+      expect(stateB.fullName).toEqual({ value: null, status: "UNKNOWN" });
+
+      // Mutate stateA nested executor
+      stateA.executor.name = createConfirmedField("Bob");
+      stateA.executor.relationship = createConfirmedField("Brother");
+      expect(stateB.executor.name).toEqual({ value: null, status: "UNKNOWN" });
+      expect(stateB.executor.relationship).toEqual({
+        value: null,
+        status: "UNKNOWN",
+      });
+
+      // Mutate stateA array fields
+      stateA.children.push(createConfirmedField("Child 1"));
+      stateA.specificGifts.push(createConfirmedField("Gift 1"));
+      expect(stateB.children).toEqual([]);
+      expect(stateB.specificGifts).toEqual([]);
+    });
+
+    it("ensures cloneState produces completely isolated deep copy", () => {
+      const state = createInitialState();
+      state.fullName = createConfirmedField("Original Name");
+      state.children.push(createConfirmedField("Original Child"));
+      state.executor.relationship = createConfirmedField("Sister");
+
+      const cloned = cloneState(state);
+
+      // Mutate clone
+      cloned.fullName = createConfirmedField("Mutated Name");
+      cloned.children.push(createConfirmedField("Cloned Child"));
+      cloned.executor.relationship = createConfirmedField("Aunt");
+
+      expect(state.fullName.value).toBe("Original Name");
+      expect(state.children.length).toBe(1);
+      expect(state.children[0].value).toBe("Original Child");
+      expect(state.executor.relationship.value).toBe("Sister");
+    });
+  });
+
+  describe("State Serialization Round-Trip", () => {
+    it("preserves all field values, statuses, and nulls through JSON serialization/deserialization", () => {
+      const originalState: PersonalWishesState = {
+        fullName: createConfirmedField("Jane Doe"),
+        homeAddress: createUnconfirmedField("123 Elm St"),
+        coversWorldwideAssets: { value: null, status: "UNKNOWN" },
+        hasChildren: createConfirmedField(false),
+        children: [],
+        executor: {
+          name: { value: null, status: "UNKNOWN" },
+          relationship: createConfirmedField("Brother"),
+        },
+        specificGifts: [
+          createConfirmedField("Gold watch to nephew"),
+          createUnconfirmedField("Car to friend"),
+        ],
+        additionalWishes: { value: null, status: "NOT_PROVIDED" },
+      };
+
+      // Serialize
+      const serialized = JSON.stringify(originalState);
+      // Deserialize
+      const parsed = JSON.parse(serialized);
+      // Validate schema
+      const validated = validatePersonalWishesState(parsed);
+
+      expect(validated).toEqual(originalState);
+      // Crucial: null remains null, not false
+      expect(validated.coversWorldwideAssets.value).toBeNull();
+      expect(validated.coversWorldwideAssets.status).toBe("UNKNOWN");
+      // Confirmed false remains boolean false
+      expect(validated.hasChildren.value).toBe(false);
+      expect(validated.hasChildren.status).toBe("CONFIRMED");
+      // Statuses are preserved
+      expect(validated.additionalWishes.status).toBe("NOT_PROVIDED");
+      expect(validated.homeAddress.status).toBe("UNCONFIRMED");
+      expect(validated.executor.relationship.status).toBe("CONFIRMED");
+      expect(validated.executor.name.status).toBe("UNKNOWN");
+    });
+  });
+
+  describe("Domain Invariants", () => {
+    it("Invariant A: UNKNOWN is not false (boolean fields initialize to null)", () => {
+      const state = createInitialState();
+      expect(state.hasChildren.value).not.toBe(false);
+      expect(state.hasChildren.value).toBeNull();
+      expect(state.hasChildren.status).toBe("UNKNOWN");
+
+      expect(state.coversWorldwideAssets.value).not.toBe(false);
+      expect(state.coversWorldwideAssets.value).toBeNull();
+      expect(state.coversWorldwideAssets.status).toBe("UNKNOWN");
+    });
+
+    it("Invariant E: Executor name and relationship are independently representable", () => {
+      const state = createInitialState();
+      // Relationship known, name unknown
+      state.executor.relationship = createConfirmedField("Brother");
+      expect(state.executor.relationship.status).toBe("CONFIRMED");
+      expect(state.executor.relationship.value).toBe("Brother");
+      expect(state.executor.name.status).toBe("UNKNOWN");
+      expect(state.executor.name.value).toBeNull();
+
+      expect(isPersonalWishesState(state)).toBe(true);
+    });
+
+    it("Invariant F: Specific gifts and additional wishes are distinct concepts", () => {
+      const state = createInitialState();
+      state.specificGifts = [
+        createConfirmedField("Vintage watch"),
+        createConfirmedField("Painting"),
+      ];
+      state.additionalWishes = createConfirmedField("Scatter ashes at sea");
+
+      expect(Array.isArray(state.specificGifts)).toBe(true);
+      expect(state.specificGifts.length).toBe(2);
+      expect(typeof state.additionalWishes).toBe("object");
+      expect(state.additionalWishes.value).toBe("Scatter ashes at sea");
+      expect(isPersonalWishesState(state)).toBe(true);
     });
   });
 });

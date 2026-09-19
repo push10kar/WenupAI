@@ -1,29 +1,13 @@
-import { PersonalWishesState, isPersonalWishesState } from "../state";
+import {
+  PersonalWishesState,
+  isPersonalWishesState,
+  cloneState,
+} from "../state";
 import { ValidatedCandidateUpdate, TransitionResult } from "./types";
 import { createTransitionError } from "./errors";
 import { applyOperation } from "./applyOperation";
 
-/**
- * Creates a deep copy of a PersonalWishesState ensuring no shared references.
- */
-export function cloneState(state: PersonalWishesState): PersonalWishesState {
-  return {
-    fullName: { ...state.fullName },
-    homeAddress: { ...state.homeAddress },
-    coversWorldwideAssets: { ...state.coversWorldwideAssets },
-    hasChildren: { ...state.hasChildren },
-    ...(state.childrenCount
-      ? { childrenCount: { ...state.childrenCount } }
-      : {}),
-    children: state.children.map((c) => ({ ...c })),
-    executor: {
-      name: { ...state.executor.name },
-      relationship: { ...state.executor.relationship },
-    },
-    specificGifts: state.specificGifts.map((g) => ({ ...g })),
-    additionalWishes: { ...state.additionalWishes },
-  };
-}
+export { cloneState };
 
 /**
  * Deep freezes an object and all its nested properties.

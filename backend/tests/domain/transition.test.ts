@@ -609,5 +609,115 @@ describe("Phase 4 — State Transition Engine", () => {
         expect(isPersonalWishesState(result.state)).toBe(true);
       }
     });
+
+    it("handles mixed multi-field updates where field A is clear, field B is ambiguous, and field C is clear", () => {
+      const state = createInitialState();
+      const candidate: ValidatedCandidateUpdate = {
+        operations: [
+          {
+            field: "fullName",
+            value: "Pushkar Patil",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+          {
+            field: "homeAddress",
+            value: "Somewhere in Pune",
+            intent: "NEW",
+            confidence: "AMBIGUOUS",
+          },
+          {
+            field: "hasChildren",
+            value: false,
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+        updates: [],
+      };
+
+      const result = applyCandidateUpdate(state, candidate);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Clear field A is CONFIRMED
+        expect(result.state.fullName).toEqual({
+          value: "Pushkar Patil",
+          status: "CONFIRMED",
+        });
+        // Ambiguous field B is UNCONFIRMED (not silently confirmed)
+        expect(result.state.homeAddress).toEqual({
+          value: "Somewhere in Pune",
+          status: "UNCONFIRMED",
+        });
+        // Clear field C is CONFIRMED (and false is a valid boolean value)
+        expect(result.state.hasChildren).toEqual({
+          value: false,
+          status: "CONFIRMED",
+        });
+      }
+    });
+
+    it("transitions NOT_PROVIDED → CONFIRMED and REFUSED → CONFIRMED cleanly when user later provides information", () => {
+      const state = createInitialState();
+      state.homeAddress = { value: null, status: "NOT_PROVIDED" };
+      state.additionalWishes = { value: null, status: "REFUSED" };
+
+      const candidate: ValidatedCandidateUpdate = {
+        operations: [
+          {
+            field: "homeAddress",
+            value: "42 Park Street",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+          {
+            field: "additionalWishes",
+            value: "Scatter ashes at sea",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+        updates: [],
+      };
+
+      const result = applyCandidateUpdate(state, candidate);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.state.homeAddress).toEqual({
+          value: "42 Park Street",
+          status: "CONFIRMED",
+        });
+        expect(result.state.additionalWishes).toEqual({
+          value: "Scatter ashes at sea",
+          status: "CONFIRMED",
+        });
+      }
+    });
+
+    it("idempotency: restating identical information on confirmed field preserves confirmation without conflict", () => {
+      const state = createInitialState();
+      state.fullName = createConfirmedField("Pushkar Patil");
+
+      const candidate: ValidatedCandidateUpdate = {
+        operations: [
+          {
+            field: "fullName",
+            value: "Pushkar Patil",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+        updates: [],
+      };
+
+      const result = applyCandidateUpdate(state, candidate);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.state.fullName).toEqual({
+          value: "Pushkar Patil",
+          status: "CONFIRMED",
+        });
+      }
+    });
   });
 });
