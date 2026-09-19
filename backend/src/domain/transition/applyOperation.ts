@@ -24,11 +24,22 @@ function transitionScalarField<T>(
   current: Field<T>,
   op: CandidateOperation,
 ): { field: Field<T> } {
+  // If the candidate operation represents a non-answer or explicit refusal
+  if (op.status === "NOT_PROVIDED" || op.status === "REFUSED") {
+    if (current.status === "CONFIRMED" && op.intent === "NEW") {
+      // Contradiction: proposing a non-answer with intent NEW on confirmed state
+      return { field: { value: current.value, status: "CONFLICTED" } };
+    }
+    return { field: { value: null, status: op.status } };
+  }
+
   const isAmbiguous = op.confidence === "AMBIGUOUS";
   const newValue = op.value as T;
 
   switch (current.status) {
-    case "UNKNOWN": {
+    case "UNKNOWN":
+    case "NOT_PROVIDED":
+    case "REFUSED": {
       const status: FieldStatus = isAmbiguous ? "UNCONFIRMED" : "CONFIRMED";
       return { field: { value: newValue, status } };
     }
@@ -90,6 +101,9 @@ function transitionArrayField(
   current: Field<string>[],
   op: CandidateOperation,
 ): Field<string>[] {
+  if (op.status === "NOT_PROVIDED" || op.status === "REFUSED") {
+    return [{ value: null, status: op.status }];
+  }
   const isAmbiguous = op.confidence === "AMBIGUOUS";
   const status: FieldStatus = isAmbiguous ? "UNCONFIRMED" : "CONFIRMED";
   const incoming = Array.isArray(op.value)

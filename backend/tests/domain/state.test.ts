@@ -267,6 +267,8 @@ describe("Domain Foundation — PersonalWishesState", () => {
         "UNCONFIRMED",
         "CONFIRMED",
         "CONFLICTED",
+        "NOT_PROVIDED",
+        "REFUSED",
       ]);
     });
   });

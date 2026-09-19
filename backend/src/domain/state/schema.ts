@@ -29,10 +29,15 @@ export function createFieldSchema<T>(valueSchema: z.ZodType<T>) {
     })
     .strict()
     .superRefine((field, ctx) => {
-      if (field.status === "UNKNOWN" && field.value !== null) {
+      if (
+        (field.status === "UNKNOWN" ||
+          field.status === "NOT_PROVIDED" ||
+          field.status === "REFUSED") &&
+        field.value !== null
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Field with status UNKNOWN must have a null value",
+          message: `Field with status ${field.status} must have a null value`,
           path: ["value"],
         });
       }

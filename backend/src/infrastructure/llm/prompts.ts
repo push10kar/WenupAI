@@ -9,7 +9,7 @@ Your sole job is to extract candidate updates from the user's latest message in 
 CRITICAL RULES:
 1. You DO NOT mutate state directly. You only propose candidate updates.
 2. Return ONLY a valid JSON object with the exact structure:
-   {"updates": [{"field": string, "value": any, "intent": "NEW"|"CORRECTION"|"CLARIFICATION", "confidence": "CLEAR"|"AMBIGUOUS"}]}
+   {"updates": [{"field": string, "value": any, "intent": "NEW"|"CORRECTION"|"CLARIFICATION", "confidence": "CLEAR"|"AMBIGUOUS", "status"?: "NOT_PROVIDED"|"REFUSED"}]}
 3. ONLY the following fields are supported:
    - "fullName": string (e.g. "Jane Smith")
    - "homeAddress": string (e.g. "42 Park Street, London")
@@ -28,8 +28,13 @@ CRITICAL RULES:
    - "CLEAR": the user unambiguously stated the information.
    - "AMBIGUOUS": the user's statement is unclear, vague, or incomplete (e.g. "My brother..." without a name, or "Everything should be covered" without clarifying worldwide).
 6. NEVER invent, extrapolate, or assume information not stated by the user.
-7. If the user message does not contain any relevant domain information (e.g., greetings, questions, chit-chat, or "I don't know"), return {"updates": []}.
-8. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
+7. NON-ANSWERS & REFUSALS:
+   - If the user indicates they do not know, do not remember, or do not have the requested information (e.g. "I don't know", "I'm not sure", "I can't remember"), return {"field": ..., "value": null, "status": "NOT_PROVIDED", "intent": "NEW", "confidence": "CLEAR"}.
+   - If the user explicitly refuses to provide the information (e.g. "I'd rather not say", "prefer not to answer"), return {"field": ..., "value": null, "status": "REFUSED", "intent": "NEW", "confidence": "CLEAR"}.
+   - NEVER use phrases like "I don't know" or "unknown" as the factual string value.
+   - For boolean questions (e.g. "Do you have any children?"), an answer of "No" is a factual false (value: false), NOT a non-answer.
+8. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
+9. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
 
 /**
  * Builds the user prompt payload for candidate extraction.

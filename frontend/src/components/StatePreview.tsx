@@ -12,6 +12,9 @@ const formatStatus = (status: FieldStatus): string => {
     case "UNCONFIRMED":
     case "CONFLICTED":
       return "Needs clarification";
+    case "REFUSED":
+      return "Refused";
+    case "NOT_PROVIDED":
     case "UNKNOWN":
     default:
       return "Not provided";
@@ -25,6 +28,8 @@ const getStatusBadgeClass = (status: FieldStatus): string => {
     case "UNCONFIRMED":
     case "CONFLICTED":
       return "badge-warning";
+    case "REFUSED":
+    case "NOT_PROVIDED":
     case "UNKNOWN":
     default:
       return "badge-unknown";

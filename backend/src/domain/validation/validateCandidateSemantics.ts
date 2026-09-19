@@ -129,6 +129,62 @@ export function validateCandidateSemantics(
     }
   }
 
+  // 5. Non-answer string rejection: literal non-answers cannot be factual values
+  const nonAnswerPatterns = [
+    /^i dont know(?:.*)?$/,
+    /^dont know(?:.*)?$/,
+    /^i do not know(?:.*)?$/,
+    /^idk$/,
+    /^dunno$/,
+    /^i dont remember(?:.*)?$/,
+    /^dont remember(?:.*)?$/,
+    /^i cant remember(?:.*)?$/,
+    /^cant remember(?:.*)?$/,
+    /^cannot remember(?:.*)?$/,
+    /^im not sure(?:.*)?$/,
+    /^not sure(?:.*)?$/,
+    /^unsure(?:.*)?$/,
+    /^i have no idea(?:.*)?$/,
+    /^no idea(?:.*)?$/,
+    /^unknown$/,
+    /^not provided$/,
+    /^none provided$/,
+    /^i dont have (?:an? |that )?(?:address|information|info|idea)(?:.*)?$/,
+    /^no (?:address|information|info)$/,
+    /^id rather not(?:.*)?$/,
+    /^prefer not to(?:.*)?$/,
+    /^refuse to(?:.*)?$/,
+  ];
+
+  for (const op of operations) {
+    if (
+      typeof op.value === "string" &&
+      op.status !== "NOT_PROVIDED" &&
+      op.status !== "REFUSED"
+    ) {
+      const normalized = op.value
+        .toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const matchesNonAnswer = nonAnswerPatterns.some((pattern) =>
+        pattern.test(normalized),
+      );
+
+      if (matchesNonAnswer) {
+        errors.push(
+          createSemanticError(
+            "INVALID_VALUE",
+            `Field '${op.field}' value '${op.value}' is a non-answer and cannot be accepted as a factual value`,
+            op.field,
+            ["operations", op.field],
+          ),
+        );
+      }
+    }
+  }
+
   // If any semantic error occurred, fail-closed
   if (errors.length > 0) {
     return {

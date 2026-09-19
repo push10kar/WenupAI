@@ -5,12 +5,16 @@
  * UNCONFIRMED: Candidate value exists, but its meaning or correctness is ambiguous or unverified.
  * CONFIRMED: Value has passed validation and is authoritative.
  * CONFLICTED: Existing state conflicts with newly supplied information and requires clarification.
+ * NOT_PROVIDED: Field was asked, but user indicated they do not know or do not have the information (value must be null).
+ * REFUSED: Field was asked, but user explicitly refused or preferred not to provide (value must be null).
  */
 export const FIELD_STATUS = {
   UNKNOWN: "UNKNOWN",
   UNCONFIRMED: "UNCONFIRMED",
   CONFIRMED: "CONFIRMED",
   CONFLICTED: "CONFLICTED",
+  NOT_PROVIDED: "NOT_PROVIDED",
+  REFUSED: "REFUSED",
 } as const;
 
 export const FIELD_STATUSES = [
@@ -18,6 +22,8 @@ export const FIELD_STATUSES = [
   FIELD_STATUS.UNCONFIRMED,
   FIELD_STATUS.CONFIRMED,
   FIELD_STATUS.CONFLICTED,
+  FIELD_STATUS.NOT_PROVIDED,
+  FIELD_STATUS.REFUSED,
 ] as const;
 
 export type FieldStatus = (typeof FIELD_STATUSES)[number];

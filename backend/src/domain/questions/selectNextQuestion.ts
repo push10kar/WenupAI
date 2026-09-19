@@ -4,27 +4,19 @@ import { getQuestion } from "./catalog";
 import { NextQuestionResult, QuestionId } from "./types";
 
 /**
- * Checks whether a scalar string field is resolved with a valid, confirmed non-blank string.
+ * Checks whether a scalar field is addressed (confirmed with valid value, or explicitly not provided/refused).
  */
-function isStringFieldResolved(field: {
-  value: string | null;
+function isScalarFieldAddressed(field: {
+  value: unknown;
   status: string;
 }): boolean {
-  return (
-    field.status === "CONFIRMED" &&
-    typeof field.value === "string" &&
-    field.value.trim().length > 0
-  );
-}
-
-/**
- * Checks whether a scalar boolean field is resolved with a confirmed boolean value.
- */
-function isBooleanFieldResolved(field: {
-  value: boolean | null;
-  status: string;
-}): boolean {
-  return field.status === "CONFIRMED" && typeof field.value === "boolean";
+  if (field.status === "CONFIRMED" && field.value !== null) {
+    if (typeof field.value === "string") {
+      return field.value.trim().length > 0;
+    }
+    return true;
+  }
+  return field.status === "NOT_PROVIDED" || field.status === "REFUSED";
 }
 
 /**
@@ -49,24 +41,27 @@ export function getUnresolvedFields(
   const unresolved: AllowedField[] = [];
 
   // 1. fullName
-  if (!isStringFieldResolved(state.fullName)) {
+  if (!isScalarFieldAddressed(state.fullName)) {
     unresolved.push("fullName");
   }
 
   // 2. homeAddress
-  if (!isStringFieldResolved(state.homeAddress)) {
+  if (!isScalarFieldAddressed(state.homeAddress)) {
     unresolved.push("homeAddress");
   }
 
   // 3. coversWorldwideAssets
-  if (!isBooleanFieldResolved(state.coversWorldwideAssets)) {
+  if (!isScalarFieldAddressed(state.coversWorldwideAssets)) {
     unresolved.push("coversWorldwideAssets");
   }
 
   // 4. hasChildren
-  if (!isBooleanFieldResolved(state.hasChildren)) {
+  if (!isScalarFieldAddressed(state.hasChildren)) {
     unresolved.push("hasChildren");
-  } else if (state.hasChildren.value === true) {
+  } else if (
+    state.hasChildren.status === "CONFIRMED" &&
+    state.hasChildren.value === true
+  ) {
     // 5. children (when hasChildren = true)
     // ARCHITECTURE.md Section 13.6 & Section 6.5
     const hasResolvedChildren =
@@ -77,19 +72,22 @@ export function getUnresolvedFields(
           typeof c.value === "string" &&
           c.value.trim().length > 0,
       );
+    const hasNotProvidedChildren = state.children.some(
+      (c) => c.status === "NOT_PROVIDED" || c.status === "REFUSED",
+    );
 
-    if (!hasResolvedChildren) {
+    if (!hasResolvedChildren && !hasNotProvidedChildren) {
       unresolved.push("children");
     }
   }
 
   // 6. executor.name
-  if (!isStringFieldResolved(state.executor.name)) {
+  if (!isScalarFieldAddressed(state.executor.name)) {
     unresolved.push("executor.name");
   }
 
   // 7. executor.relationship
-  if (!isStringFieldResolved(state.executor.relationship)) {
+  if (!isScalarFieldAddressed(state.executor.relationship)) {
     unresolved.push("executor.relationship");
   }
 
@@ -102,13 +100,16 @@ export function getUnresolvedFields(
         typeof g.value === "string" &&
         g.value.trim().length > 0,
     );
+  const hasNotProvidedGifts = state.specificGifts.some(
+    (g) => g.status === "NOT_PROVIDED" || g.status === "REFUSED",
+  );
 
-  if (!hasResolvedGifts) {
+  if (!hasResolvedGifts && !hasNotProvidedGifts) {
     unresolved.push("specificGifts");
   }
 
   // 9. additionalWishes
-  if (!isStringFieldResolved(state.additionalWishes)) {
+  if (!isScalarFieldAddressed(state.additionalWishes)) {
     unresolved.push("additionalWishes");
   }
 

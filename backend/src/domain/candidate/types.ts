@@ -30,6 +30,8 @@ export type CandidateOperationType = UpdateIntent;
 export const CONFIDENCE_LEVELS = ["CLEAR", "AMBIGUOUS"] as const;
 export type CandidateConfidence = (typeof CONFIDENCE_LEVELS)[number];
 
+import { FieldStatus } from "../state";
+
 /**
  * CandidateOperation represents an individual proposed change to a single domain field.
  * Model output is untrusted runtime data and must pass schema and semantic validation.
@@ -39,6 +41,7 @@ export interface CandidateOperation {
   value: unknown;
   intent: UpdateIntent;
   confidence: CandidateConfidence;
+  status?: FieldStatus;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fieldStatusSchema, FieldStatus } from "../state";
 import {
   ALLOWED_FIELDS,
   AllowedField,
@@ -120,6 +121,7 @@ export const candidateOperationSchema = z
     intent: updateIntentSchema.optional(),
     operation: updateIntentSchema.optional(),
     confidence: confidenceSchema.optional().default("CLEAR"),
+    status: fieldStatusSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -133,13 +135,25 @@ export const candidateOperationSchema = z
       });
     }
 
-    // Ensure value is present
+    // Ensure value is present (undefined is rejected, null is allowed for non-answers)
     if (data.value === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Candidate operation requires a value",
         path: ["value"],
       });
+      return;
+    }
+
+    // Non-answer handling: NOT_PROVIDED and REFUSED require null value
+    if (data.status === "NOT_PROVIDED" || data.status === "REFUSED") {
+      if (data.value !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Candidate operation with status '${data.status}' must have a null value`,
+          path: ["value"],
+        });
+      }
       return;
     }
 
@@ -159,6 +173,7 @@ export const candidateOperationSchema = z
       value: data.value,
       intent: (data.intent ?? data.operation) as UpdateIntent,
       confidence: data.confidence as CandidateConfidence,
+      ...(data.status ? { status: data.status as FieldStatus } : {}),
     }),
   );
 

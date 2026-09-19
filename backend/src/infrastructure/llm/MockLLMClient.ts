@@ -159,6 +159,32 @@ export class MockLLMClient implements LLMClient {
 
       switch (field) {
         case "fullName": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "fullName",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "fullName",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const clean = rawText
             .replace(/^(?:my name is|i am|i'm|call me)\s+/i, "")
             .trim();
@@ -176,6 +202,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "homeAddress": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "homeAddress",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "homeAddress",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const clean = rawText
             .replace(/^(?:i live at|my address is)\s+/i, "")
             .trim();
@@ -194,6 +246,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "coversWorldwideAssets": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "coversWorldwideAssets",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "coversWorldwideAssets",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(
             rawText,
           );
@@ -211,6 +289,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "hasChildren": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "hasChildren",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "hasChildren",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const isNegative =
             /^(?:no|false|none|nope|n\b|don't|not\b|no children)/i.test(
               rawText,
@@ -241,6 +345,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "children": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "children",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "children",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const extractedChildren = parseChildrenFromText(rawText);
           const value =
             extractedChildren.length > 0
@@ -259,6 +389,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "executor.name": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "executor.name",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "executor.name",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const clean = rawText
             .replace(
               /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
@@ -279,6 +435,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "executor.relationship": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "executor.relationship",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "executor.relationship",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const clean = rawText
             .replace(/^(?:he is my|she is my|they are my|my)\s+/i, "")
             .trim();
@@ -296,6 +478,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "specificGifts": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "specificGifts",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "specificGifts",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const value =
             rawText.length > 0 ? [rawText] : ["Vintage watch to James Dent"];
           return {
@@ -311,6 +519,32 @@ export class MockLLMClient implements LLMClient {
         }
 
         case "additionalWishes": {
+          if (isRefusal(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "additionalWishes",
+                  value: null,
+                  status: "REFUSED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
+          if (isNonAnswer(rawText)) {
+            return {
+              updates: [
+                {
+                  field: "additionalWishes",
+                  value: null,
+                  status: "NOT_PROVIDED",
+                  intent: "NEW",
+                  confidence: "CLEAR",
+                },
+              ],
+            };
+          }
           const value = rawText.length > 0 ? rawText : "No further wishes";
           return {
             updates: [
@@ -402,10 +636,84 @@ function capitalizeWord(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+function normalizeInputText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isRefusal(text: string): boolean {
+  const norm = normalizeInputText(text);
+  const refusalPatterns = [
+    /^id rather not(?:.*)?$/,
+    /^i would rather not(?:.*)?$/,
+    /^prefer not to(?:.*)?$/,
+    /^i prefer not to(?:.*)?$/,
+    /^refuse to(?:.*)?$/,
+    /^i refuse to(?:.*)?$/,
+    /^wont provide(?:.*)?$/,
+    /^will not provide(?:.*)?$/,
+    /^wont give(?:.*)?$/,
+    /^will not give(?:.*)?$/,
+    /^wont say(?:.*)?$/,
+    /^will not say(?:.*)?$/,
+    /^dont want to provide(?:.*)?$/,
+    /^do not want to provide(?:.*)?$/,
+    /^dont want to say(?:.*)?$/,
+    /^do not want to say(?:.*)?$/,
+    /^private$/,
+    /^confidential$/,
+    /^no comment$/,
+  ];
+  return refusalPatterns.some((p) => p.test(norm));
+}
+
+export function isNonAnswer(text: string): boolean {
+  const norm = normalizeInputText(text);
+  const nonAnswerPatterns = [
+    /^i dont know(?:.*)?$/,
+    /^dont know(?:.*)?$/,
+    /^i do not know(?:.*)?$/,
+    /^idk$/,
+    /^dunno$/,
+    /^i dont remember(?:.*)?$/,
+    /^dont remember(?:.*)?$/,
+    /^i do not remember(?:.*)?$/,
+    /^i cant remember(?:.*)?$/,
+    /^cant remember(?:.*)?$/,
+    /^cannot remember(?:.*)?$/,
+    /^im not sure(?:.*)?$/,
+    /^i am not sure(?:.*)?$/,
+    /^not sure(?:.*)?$/,
+    /^unsure$/,
+    /^i have no idea(?:.*)?$/,
+    /^have no idea(?:.*)?$/,
+    /^no idea(?:.*)?$/,
+    /^unknown$/,
+    /^not provided$/,
+    /^none provided$/,
+    /^i dont have that information(?:.*)?$/,
+    /^dont have that information(?:.*)?$/,
+    /^dont have that info(?:.*)?$/,
+    /^i dont have that info(?:.*)?$/,
+    /^i dont have that(?:.*)?$/,
+    /^dont have that(?:.*)?$/,
+    /^i dont have one(?:.*)?$/,
+    /^dont have one(?:.*)?$/,
+    /^i dont have an? address(?:.*)?$/,
+    /^dont have an? address(?:.*)?$/,
+    /^no address(?:.*)?$/,
+    /^na$/,
+    /^n\/a$/,
+  ];
+  return nonAnswerPatterns.some((p) => p.test(norm));
+}
+
 /**
- * Extracts child names and explicit relationships (daughter/son) from conversational text.
- * Invariants:
- * - If explicit relationships are stated ("my daughter Sarah", "the sons name is Bob"),
+ * Parses children names and relationship labels from user message.
+ * - Extracts both names and explicit relationships ("daughter Sarah", "son Bob") and
  *   formats as "Name (daughter)" / "Name (son)".
  * - If only names are stated without relationships ("Sarah and Bob"), returns plain names ["Sarah", "Bob"].
  * - Preserves ambiguity: NEVER invents daughter/son relationships when unstated.

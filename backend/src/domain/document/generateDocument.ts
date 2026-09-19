@@ -20,6 +20,8 @@ function renderStringField(field: Field<string>): string {
     case "UNCONFIRMED":
     case "CONFLICTED":
       return NEEDS_CLARIFICATION;
+    case "NOT_PROVIDED":
+    case "REFUSED":
     case "UNKNOWN":
     default:
       return NOT_PROVIDED;
@@ -39,6 +41,8 @@ function renderBooleanField(field: Field<boolean>): string {
     case "UNCONFIRMED":
     case "CONFLICTED":
       return NEEDS_CLARIFICATION;
+    case "NOT_PROVIDED":
+    case "REFUSED":
     case "UNKNOWN":
     default:
       return NOT_PROVIDED;
@@ -85,6 +89,8 @@ function renderChildren(state: PersonalWishesState): string {
     case "UNCONFIRMED":
     case "CONFLICTED":
       return NEEDS_CLARIFICATION;
+    case "NOT_PROVIDED":
+    case "REFUSED":
     case "UNKNOWN":
     default:
       return NOT_PROVIDED;

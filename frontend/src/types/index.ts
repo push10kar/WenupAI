@@ -2,7 +2,9 @@ export type FieldStatus =
   | "UNKNOWN"
   | "UNCONFIRMED"
   | "CONFIRMED"
-  | "CONFLICTED";
+  | "CONFLICTED"
+  | "NOT_PROVIDED"
+  | "REFUSED";
 
 export interface Field<T> {
   readonly value: T | null;
