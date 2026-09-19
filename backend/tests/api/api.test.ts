@@ -240,8 +240,8 @@ describe("Phase 11: Fastify API Layer", () => {
       expect(body.error.code).toBe("NOT_FOUND");
     });
 
-    it("returns 422 Unprocessable Entity on semantic candidate validation failure", async () => {
-      // Mock LLM returning candidate with invalid field
+    it("returns 422 Unprocessable Entity on schema validation failure with schema error code and description", async () => {
+      // Mock LLM returning candidate with invalid field (schema failure)
       const invalidLLM = new MockLLMClient({
         extractionResponses: [
           {
@@ -278,8 +278,136 @@ describe("Phase 11: Fastify API Layer", () => {
 
       expect(res.statusCode).toBe(422);
       const body = res.json();
-      expect(body.error.code).toBe("VALIDATION_ERROR");
-      expect(body.error.message).toBeDefined();
+      expect(body.error.code).toBe("UNKNOWN_FIELD");
+      expect(body.error.message).toBe(
+        "The candidate update response does not satisfy CandidateUpdate schema.",
+      );
+    });
+
+    it("returns 422 Unprocessable Entity on parse failure with parse error code and description", async () => {
+      // Mock LLM returning malformed non-JSON data that fails Stage 1 Parse
+      const invalidLLM = new MockLLMClient({
+        extractionResponses: ["{ malformed json string" as any],
+      });
+      const invalidService = new InterviewService({
+        llmClient: invalidLLM,
+        sessionRepository: repo,
+      });
+      const customApp = createApp({
+        interviewService: invalidService,
+        sessionRepository: repo,
+        llmClient: invalidLLM,
+      });
+
+      const session = await repo.createSession();
+
+      const res = await customApp.inject({
+        method: "POST",
+        url: `/api/sessions/${session.id}/messages`,
+        payload: {
+          content: "Some input",
+        },
+      });
+
+      expect(res.statusCode).toBe(422);
+      const body = res.json();
+      expect(body.error.code).toBe("MALFORMED_JSON");
+      expect(body.error.message).toBe(
+        "The candidate update response could not be parsed.",
+      );
+    });
+
+    it("returns 422 Unprocessable Entity on semantic failure with semantic error code and description", async () => {
+      // Mock LLM returning candidate with duplicate children (fails Stage 3 Semantics)
+      const semanticLLM = new MockLLMClient({
+        extractionResponses: [
+          {
+            updates: [
+              {
+                field: "children",
+                value: ["Alice", "alice"],
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          },
+        ],
+      });
+      const semanticService = new InterviewService({
+        llmClient: semanticLLM,
+        sessionRepository: repo,
+      });
+      const customApp = createApp({
+        interviewService: semanticService,
+        sessionRepository: repo,
+        llmClient: semanticLLM,
+      });
+
+      const session = await repo.createSession();
+
+      const res = await customApp.inject({
+        method: "POST",
+        url: `/api/sessions/${session.id}/messages`,
+        payload: {
+          content: "Alice and alice",
+        },
+      });
+
+      expect(res.statusCode).toBe(422);
+      const body = res.json();
+      expect(body.error.code).toBe("INVALID_VALUE");
+      expect(body.error.message).toBe(
+        "The candidate update structure is valid but violates domain semantics.",
+      );
+    });
+
+    it("runs interactive end-to-end interview turns with unconfigured MockLLMClient", async () => {
+      const unconfiguredMock = new MockLLMClient();
+      const defaultService = new InterviewService({
+        llmClient: unconfiguredMock,
+        sessionRepository: repo,
+      });
+      const mockApp = createApp({
+        interviewService: defaultService,
+        sessionRepository: repo,
+        llmClient: unconfiguredMock,
+      });
+
+      // 1. Create interview session
+      const createRes = await mockApp.inject({
+        method: "POST",
+        url: "/api/sessions",
+        payload: {},
+      });
+      expect(createRes.statusCode).toBe(201);
+      const sessionId = createRes.json().session.id;
+      expect(createRes.json().session.version).toBe(1);
+
+      // 2. Submit user response for fullName (Turn 1)
+      const turn1Res = await mockApp.inject({
+        method: "POST",
+        url: `/api/sessions/${sessionId}/messages`,
+        payload: { content: "Arthur Dent" },
+      });
+      expect(turn1Res.statusCode).toBe(200);
+      const turn1Body = turn1Res.json();
+      expect(turn1Body.session.version).toBe(2);
+      expect(turn1Body.session.state.fullName.value).toBe("Arthur Dent");
+      expect(turn1Body.session.state.fullName.status).toBe("CONFIRMED");
+      expect(turn1Body.assistantMessage.content).toContain("home address");
+
+      // 3. Submit user response for homeAddress (Turn 2)
+      const turn2Res = await mockApp.inject({
+        method: "POST",
+        url: `/api/sessions/${sessionId}/messages`,
+        payload: { content: "Cottington Lane" },
+      });
+      expect(turn2Res.statusCode).toBe(200);
+      const turn2Body = turn2Res.json();
+      expect(turn2Body.session.version).toBe(3);
+      expect(turn2Body.session.state.homeAddress.value).toBe("Cottington Lane");
+      expect(turn2Body.session.state.homeAddress.status).toBe("CONFIRMED");
+      expect(turn2Body.assistantMessage.content).toContain("worldwide assets");
     });
 
     it("returns 409 Conflict when candidate conflicts with confirmed state", async () => {

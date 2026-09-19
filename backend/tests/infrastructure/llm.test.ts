@@ -132,9 +132,65 @@ describe("Phase 8: Deterministic Mock LLM Client", () => {
       const res2 = await client.extractUpdates(createBaseInput());
       expect(res2.updates[0].field).toBe("homeAddress");
 
-      // Subsequent call falls back to default empty updates
+      // Subsequent call falls back to deterministic valid default extraction
       const res3 = await client.extractUpdates(createBaseInput());
-      expect(res3.updates).toEqual([]);
+      expect(res3.updates.length).toBeGreaterThan(0);
+      expect(res3.updates[0].field).toBe("fullName");
+    });
+
+    it("produces valid default CandidateUpdate with unconfigured MockLLMClient that passes validation", async () => {
+      const client = new MockLLMClient();
+      const state = createInitialState();
+      const result = await client.extractUpdates({
+        currentState: state,
+        conversation: [],
+        latestUserMessage: "Arthur Dent",
+      });
+
+      expect(result).toBeDefined();
+      expect(result.updates.length).toBeGreaterThan(0);
+      expect(result.updates[0].field).toBe("fullName");
+      expect(result.updates[0].value).toBe("Arthur Dent");
+
+      // Verify it passes the real domain validation pipeline
+      const validationResult = validateCandidate(result, state);
+      expect(validationResult.success).toBe(true);
+    });
+
+    it("preserves queue precedence over default extraction behavior", async () => {
+      const client = new MockLLMClient();
+      const customExtraction: LLMExtractionResult = {
+        updates: [
+          {
+            field: "homeAddress",
+            value: "10 Downing Street",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+      };
+
+      // Queue custom response
+      client.queueExtractionResult(customExtraction);
+
+      const state = createInitialState();
+      const resQueued = await client.extractUpdates({
+        currentState: state,
+        conversation: [],
+        latestUserMessage: "Arthur Dent",
+      });
+
+      // Queued result overrides default behavior (which would have been fullName)
+      expect(resQueued).toEqual(customExtraction);
+      expect(resQueued.updates[0].field).toBe("homeAddress");
+
+      // Once queue is drained, next call falls back to default behavior
+      const resDefault = await client.extractUpdates({
+        currentState: state,
+        conversation: [],
+        latestUserMessage: "Arthur Dent",
+      });
+      expect(resDefault.updates[0].field).toBe("fullName");
     });
 
     it("returns configured natural-language assistant responses", async () => {

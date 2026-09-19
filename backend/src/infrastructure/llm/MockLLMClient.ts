@@ -5,6 +5,7 @@ import {
   MockLLMClientConfig,
   ResponseGenerationInput,
 } from "./types";
+import { selectNextQuestion } from "../../domain/questions";
 
 type ExtractionQueueItem =
   | { readonly kind: "result"; readonly data: LLMExtractionResult | unknown }
@@ -39,12 +40,12 @@ export class MockLLMClient implements LLMClient {
     input: ResponseGenerationInput,
   ) => Promise<string> | string;
 
-  private defaultExtractionResult: LLMExtractionResult = { updates: [] };
+  private configuredDefaultExtractionResult?: LLMExtractionResult;
   private defaultTextResponse = "Thank you. Your information has been noted.";
 
   constructor(config?: MockLLMClientConfig) {
-    if (config?.defaultExtractionResult) {
-      this.defaultExtractionResult = config.defaultExtractionResult;
+    if (config?.defaultExtractionResult !== undefined) {
+      this.configuredDefaultExtractionResult = config.defaultExtractionResult;
     }
     if (config?.defaultTextResponse !== undefined) {
       this.defaultTextResponse = config.defaultTextResponse;
@@ -135,7 +136,204 @@ export class MockLLMClient implements LLMClient {
       return structuredClone(result);
     }
 
-    return structuredClone(this.defaultExtractionResult);
+    if (this.configuredDefaultExtractionResult !== undefined) {
+      return structuredClone(this.configuredDefaultExtractionResult);
+    }
+
+    return this.generateDefaultExtraction(input);
+  }
+
+  /**
+   * Generates a deterministic, valid CandidateUpdate matching the current unresolved
+   * question in the interview sequence.
+   */
+  private generateDefaultExtraction(
+    input: LLMExtractionInput,
+  ): LLMExtractionResult {
+    const questionResult = selectNextQuestion(input.currentState);
+    const rawText = input.latestUserMessage.trim();
+
+    if (questionResult.status === "QUESTION_AVAILABLE") {
+      const field = questionResult.question.field;
+
+      switch (field) {
+        case "fullName": {
+          const clean = rawText
+            .replace(/^(?:my name is|i am|i'm|call me)\s+/i, "")
+            .trim();
+          const value = clean.length > 0 ? clean : "Arthur Dent";
+          return {
+            updates: [
+              {
+                field: "fullName",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "homeAddress": {
+          const clean = rawText
+            .replace(/^(?:i live at|my address is)\s+/i, "")
+            .trim();
+          const value =
+            clean.length > 0 ? clean : "42 Country Lane, Cottington";
+          return {
+            updates: [
+              {
+                field: "homeAddress",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "coversWorldwideAssets": {
+          const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(
+            rawText,
+          );
+          const value = !isNegative;
+          return {
+            updates: [
+              {
+                field: "coversWorldwideAssets",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "hasChildren": {
+          const isNegative =
+            /^(?:no|false|none|nope|n\b|don't|not\b|no children)/i.test(
+              rawText,
+            );
+          const value = !isNegative;
+          return {
+            updates: [
+              {
+                field: "hasChildren",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "children": {
+          let names: string[];
+          if (rawText.length > 0) {
+            names = rawText
+              .split(/,|;|\band\b/i)
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
+            if (names.length === 0) {
+              names = [rawText];
+            }
+          } else {
+            names = ["Sarah Dent", "John Dent"];
+          }
+          const uniqueNames = Array.from(new Set(names));
+          return {
+            updates: [
+              {
+                field: "children",
+                value: uniqueNames,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "executor.name": {
+          const clean = rawText
+            .replace(
+              /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
+              "",
+            )
+            .trim();
+          const value = clean.length > 0 ? clean : "James Dent";
+          return {
+            updates: [
+              {
+                field: "executor.name",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "executor.relationship": {
+          const clean = rawText
+            .replace(/^(?:he is my|she is my|they are my|my)\s+/i, "")
+            .trim();
+          const value = clean.length > 0 ? clean : "Brother";
+          return {
+            updates: [
+              {
+                field: "executor.relationship",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "specificGifts": {
+          const value =
+            rawText.length > 0 ? [rawText] : ["Vintage watch to James Dent"];
+          return {
+            updates: [
+              {
+                field: "specificGifts",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+
+        case "additionalWishes": {
+          const value = rawText.length > 0 ? rawText : "No further wishes";
+          return {
+            updates: [
+              {
+                field: "additionalWishes",
+                value,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          };
+        }
+      }
+    }
+
+    // Interview is already COMPLETE or all fields confirmed:
+    // Update additionalWishes with intent CORRECTION so it passes transition
+    const value = rawText.length > 0 ? rawText : "No further wishes";
+    return {
+      updates: [
+        {
+          field: "additionalWishes",
+          value,
+          intent: "CORRECTION",
+          confidence: "CLEAR",
+        },
+      ],
+    };
   }
 
   /**

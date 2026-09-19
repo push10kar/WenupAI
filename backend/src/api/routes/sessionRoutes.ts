@@ -178,10 +178,34 @@ export const sessionRoutes: FastifyPluginAsync<SessionRouteOptions> = async (
         }
 
         case "VALIDATION_ERROR": {
+          const primaryError = result.errors[0];
+          let errorCode: string = API_ERROR_CODES.VALIDATION_ERROR;
+          let errorMessage = "The candidate update failed validation.";
+
+          if (primaryError) {
+            errorCode = primaryError.code;
+            switch (primaryError.stage) {
+              case "PARSE":
+                errorMessage =
+                  "The candidate update response could not be parsed.";
+                break;
+              case "SCHEMA":
+                errorMessage =
+                  "The candidate update response does not satisfy CandidateUpdate schema.";
+                break;
+              case "SEMANTIC":
+                errorMessage =
+                  "The candidate update structure is valid but violates domain semantics.";
+                break;
+              default:
+                errorMessage = "The candidate update failed validation.";
+            }
+          }
+
           const errPayload: ApiErrorResponse = {
             error: {
-              code: API_ERROR_CODES.VALIDATION_ERROR,
-              message: "The candidate update failed semantic validation.",
+              code: errorCode,
+              message: errorMessage,
             },
           };
           return reply.status(422).send(errPayload);
