@@ -89,10 +89,37 @@ export function errorHandler(
 
   // Handle LLM provider errors
   if (error instanceof LLMClientError) {
+    let message =
+      "The AI service is temporarily unavailable. Please try again.";
+    switch (error.code) {
+      case "CONFIGURATION_ERROR":
+        message =
+          "Gemini is not configured correctly. Check GEMINI_API_KEY and LLM_PROVIDER.";
+        break;
+      case "PROVIDER_AUTH_ERROR":
+        message =
+          "Gemini authentication failed. Check that your API key is valid and has Gemini API access.";
+        break;
+      case "PROVIDER_RATE_LIMIT":
+        message =
+          "Gemini rate limit reached. Check your quota or try again later.";
+        break;
+      case "PROVIDER_ERROR":
+        message =
+          "Gemini rejected the request. Check that GEMINI_MODEL is supported for your API key.";
+        break;
+      case "PROVIDER_TIMEOUT":
+        message =
+          "Gemini took too long to respond. Try again or increase LLM_TIMEOUT_MS.";
+        break;
+      case "MALFORMED_OUTPUT":
+        message = "Gemini returned an unexpected response. Try again.";
+        break;
+    }
     const payload: ApiErrorResponse = {
       error: {
         code: API_ERROR_CODES.PROVIDER_ERROR,
-        message: "The AI service is temporarily unavailable.",
+        message,
       },
     };
     return reply.status(503).send(payload);

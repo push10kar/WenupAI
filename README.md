@@ -73,7 +73,7 @@ Key environment variables:
 
 - `PORT`: Port for the backend server (default: `3000`).
 - `NODE_ENV`: Application environment (`development` | `production` | `test`).
-- `LLM_PROVIDER`: LLM provider setting (`mock` | `gemini` | `groq`). Defaults to `mock` so the project can be run locally without requiring external API keys.
+- `LLM_PROVIDER`: LLM provider setting (`mock` | `gemini`). Defaults to `mock`; Gemini is the only external model provider.
 
 ---
 

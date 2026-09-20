@@ -9,8 +9,7 @@ import {
  *
  * Implemented by:
  * - MockLLMClient
- * - GeminiLLMClient (future)
- * - GroqLLMClient (future)
+ * - GeminiLLMClient
  *
  * Guarantees:
  * - Application code depends only on this interface.

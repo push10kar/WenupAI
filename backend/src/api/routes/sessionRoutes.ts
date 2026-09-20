@@ -5,7 +5,7 @@ import {
   SessionRepository,
   PersistenceError,
 } from "../../application/repositories";
-import { Message } from "../../infrastructure/llm";
+import { LLMClientError, Message } from "../../infrastructure/llm";
 import {
   createSessionBodySchema,
   sessionIdParamSchema,
@@ -16,6 +16,29 @@ import { API_ERROR_CODES, ApiErrorResponse } from "../errors";
 export interface SessionRouteOptions {
   interviewService: InterviewService;
   sessionRepository?: SessionRepository;
+}
+
+function getProviderErrorMessage(error: unknown): string {
+  if (!(error instanceof LLMClientError)) {
+    return "The AI service is temporarily unavailable. Please try again.";
+  }
+
+  switch (error.code) {
+    case "CONFIGURATION_ERROR":
+      return "Gemini is not configured correctly. Check GEMINI_API_KEY and LLM_PROVIDER.";
+    case "PROVIDER_AUTH_ERROR":
+      return "Gemini authentication failed. Check that your API key is valid and has Gemini API access.";
+    case "PROVIDER_RATE_LIMIT":
+      return "Gemini rate limit reached. Check your quota or try again later.";
+    case "PROVIDER_ERROR":
+      return "Gemini rejected the request. Check that GEMINI_MODEL is supported for your API key.";
+    case "PROVIDER_TIMEOUT":
+      return "Gemini took too long to respond. Try again or increase LLM_TIMEOUT_MS.";
+    case "MALFORMED_OUTPUT":
+      return "Gemini returned an unexpected response. Try again.";
+    default:
+      return "The AI service is temporarily unavailable. Please try again.";
+  }
 }
 
 export const sessionRoutes: FastifyPluginAsync<SessionRouteOptions> = async (
@@ -235,7 +258,7 @@ export const sessionRoutes: FastifyPluginAsync<SessionRouteOptions> = async (
           const errPayload: ApiErrorResponse = {
             error: {
               code: API_ERROR_CODES.PROVIDER_ERROR,
-              message: "The AI service is temporarily unavailable.",
+              message: getProviderErrorMessage(result.error),
             },
           };
           return reply.status(503).send(errPayload);

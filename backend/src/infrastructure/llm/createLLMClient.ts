@@ -2,7 +2,6 @@ import { AppConfig } from "../../config";
 import { LLMClient } from "./LLMClient";
 import { MockLLMClient } from "./MockLLMClient";
 import { GeminiLLMClient } from "./gemini/GeminiLLMClient";
-import { GroqLLMClient } from "./groq/GroqLLMClient";
 import { LLMClientError } from "./errors";
 
 export interface CreateLLMClientOverrides {
@@ -15,7 +14,6 @@ export interface CreateLLMClientOverrides {
  * Supports:
  * - mock -> MockLLMClient
  * - gemini -> GeminiLLMClient
- * - groq -> GroqLLMClient
  *
  * Invariants:
  * - No automatic fallback between providers.
@@ -45,24 +43,9 @@ export function createLLMClient(
       });
     }
 
-    case "groq": {
-      if (!cfg.groqApiKey || cfg.groqApiKey.trim().length === 0) {
-        throw new LLMClientError(
-          "Missing required environment variable GROQ_API_KEY for LLM_PROVIDER 'groq'",
-          "CONFIGURATION_ERROR",
-        );
-      }
-      return new GroqLLMClient({
-        apiKey: cfg.groqApiKey,
-        model: cfg.groqModel,
-        timeoutMs: cfg.llmTimeoutMs,
-        fetch: overrides?.fetch,
-      });
-    }
-
     default:
       throw new LLMClientError(
-        `Unsupported LLM provider: '${(cfg as { llmProvider: string }).llmProvider}'. Supported: mock, gemini, groq`,
+        `Unsupported LLM provider: '${(cfg as { llmProvider: string }).llmProvider}'. Supported: mock, gemini`,
         "CONFIGURATION_ERROR",
       );
   }

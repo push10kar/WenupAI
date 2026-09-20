@@ -53,10 +53,13 @@ export class GeminiLLMClient implements LLMClient {
     const prompt = buildExtractionPrompt(input);
 
     const body = {
+      systemInstruction: {
+        parts: [{ text: EXTRACTION_SYSTEM_PROMPT }],
+      },
       contents: [
         {
           role: "user",
-          parts: [{ text: `${EXTRACTION_SYSTEM_PROMPT}\n\n${prompt}` }],
+          parts: [{ text: prompt }],
         },
       ],
       generationConfig: {
@@ -100,12 +103,13 @@ export class GeminiLLMClient implements LLMClient {
     const prompt = buildResponsePrompt(input);
 
     const body = {
+      systemInstruction: {
+        parts: [{ text: RESPONSE_GENERATION_SYSTEM_PROMPT }],
+      },
       contents: [
         {
           role: "user",
-          parts: [
-            { text: `${RESPONSE_GENERATION_SYSTEM_PROMPT}\n\n${prompt}` },
-          ],
+          parts: [{ text: prompt }],
         },
       ],
       generationConfig: {
