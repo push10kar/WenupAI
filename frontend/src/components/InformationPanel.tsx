@@ -104,7 +104,7 @@ export const InformationPanel: React.FC<InformationPanelProps> = ({
       {/* Tab Content */}
       <div className="tab-content flex-1 overflow-y-auto p-4 bg-white">
         {activeTab === "document" ? (
-          <DocumentPreview document={document} />
+          <DocumentPreview document={document} state={state} />
         ) : (
           <StatePreview state={state} />
         )}

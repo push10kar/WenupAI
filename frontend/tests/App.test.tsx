@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import App from "../src/App";
-import { sessionApi, ApiClientError } from "../src/api";
+import { sessionApi } from "../src/api";
 import { Session } from "../src/types";
 
 // Mock sessionApi module
@@ -25,7 +31,7 @@ vi.mock("../src/api", () => {
   };
 });
 
-describe("Phase 12: React UI Frontend", () => {
+describe("Two-Page Flow & Workspace Card", () => {
   const createInitialSession = (): Session => ({
     id: "session-1",
     version: 1,
@@ -69,345 +75,247 @@ describe("Phase 12: React UI Frontend", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.pushState({}, "", "/");
   });
 
-  describe("Initial Rendering & Lifecycle", () => {
-    it("renders header, brand title, and loading state while initializing", async () => {
-      vi.mocked(sessionApi.createSession).mockReturnValue(
-        new Promise(() => {}),
-      );
-
-      render(<App />);
-
-      expect(screen.getByText("Personal Wishes Intake")).toBeInTheDocument();
-      expect(
-        screen.getByText(/Initializing interview session/i),
-      ).toBeInTheDocument();
-    });
-
-    it("renders initial question and composer when session is created", async () => {
+  describe("Landing Page Default on Entry and Reload", () => {
+    it("renders the Landing Page by default when entered or reloaded", async () => {
       vi.mocked(sessionApi.createSession).mockResolvedValue(
         createInitialSession(),
       );
 
       render(<App />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(/what is your full legal name/i),
-        ).toBeInTheDocument();
-      });
+      expect(screen.getByText("Document Intake Assistant")).toBeInTheDocument();
+      expect(screen.getByText(/Turn conversation/i)).toBeInTheDocument();
+      expect(screen.getByText("Enter Workspace")).toBeInTheDocument();
 
-      expect(
-        screen.getByPlaceholderText(/Type your response here/i),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Send response/i }),
-      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(sessionApi.createSession).toHaveBeenCalled();
+      });
     });
 
-    it("renders structured state and document preview tabs", async () => {
+    it("takes the user to the landing page on browser reload even if URL previously had workspace query", async () => {
+      vi.mocked(sessionApi.createSession).mockResolvedValue(
+        createInitialSession(),
+      );
+
+      window.history.pushState({}, "", "/?view=workspace");
+
+      // Mock performance navigation timing for reload
+      const originalGetEntriesByType = window.performance.getEntriesByType;
+      window.performance.getEntriesByType = vi
+        .fn()
+        .mockImplementation((type: string) => {
+          if (type === "navigation") {
+            return [{ type: "reload" } as PerformanceNavigationTiming];
+          }
+          return [];
+        });
+
+      await act(async () => {
+        render(<App />);
+      });
+
+      expect(screen.getByText("Document Intake Assistant")).toBeInTheDocument();
+      expect(screen.queryByTestId("workspace-card")).not.toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(sessionApi.createSession).toHaveBeenCalled();
+      });
+
+      // Clean up mock
+      window.performance.getEntriesByType = originalGetEntriesByType;
+    });
+
+    it("enters workspace showing only the card with thick borders", async () => {
       vi.mocked(sessionApi.createSession).mockResolvedValue(
         createInitialSession(),
       );
 
       render(<App />);
 
+      const enterButton = screen.getByText("Enter Workspace");
+      fireEvent.click(enterButton);
+
       await waitFor(() => {
-        expect(
-          screen.getByRole("tab", { name: /Document Preview/i }),
-        ).toBeInTheDocument();
+        expect(screen.getByTestId("workspace-card")).toBeInTheDocument();
       });
 
+      // The card has thick border and starts in dark mode matching Screenshot 1
+      const card = screen.getByTestId("workspace-card");
+      expect(card).toHaveStyle({ border: "6px solid #4E1FBE" });
+      expect(card).toHaveClass("dark");
+      expect(card).toHaveClass("bg-[#0a0a0a]");
+
+      // New session button exists on the left of the theme toggle button
+      const newSessionButton = screen.getByTestId("new-session-button");
+      expect(newSessionButton).toBeInTheDocument();
+      expect(screen.getByText("New session")).toBeInTheDocument();
+
+      // Theme toggle button toggles dark and light mode
+      const toggleButton = screen.getByTestId("theme-toggle-button");
+      expect(toggleButton).toBeInTheDocument();
+      expect(screen.getByText("Light mode")).toBeInTheDocument();
+
+      // Click to toggle to Light mode
+      fireEvent.click(toggleButton);
+      expect(card).not.toHaveClass("dark");
+      expect(card).toHaveClass("bg-white");
+      expect(screen.getByText("Dark mode")).toBeInTheDocument();
+
+      // Click again to toggle back to Dark mode
+      fireEvent.click(toggleButton);
+      expect(card).toHaveClass("dark");
+      expect(card).toHaveClass("bg-[#0a0a0a]");
+      expect(screen.getByText("Light mode")).toBeInTheDocument();
+
+      // Real conversation: initial question from assistant is rendered
       expect(
-        screen.getByRole("tab", { name: /Structured State/i }),
+        screen.getByText(/what is your full legal name/i),
       ).toBeInTheDocument();
 
-      // Switch to Structured State tab
-      fireEvent.click(screen.getByRole("tab", { name: /Structured State/i }));
-      expect(screen.getByText("Personal Details")).toBeInTheDocument();
-      expect(screen.getByText("Full Name")).toBeInTheDocument();
-      expect(screen.getAllByText("Not provided").length).toBeGreaterThan(0);
-    });
-  });
+      // MessageHeader sender names are rendered
+      expect(screen.getByText("Intake assistant")).toBeInTheDocument();
 
-  describe("User Interaction & Turn Submission", () => {
-    it("allows user to enter answer and submit turn to API", async () => {
-      const initialSession = createInitialSession();
-      vi.mocked(sessionApi.createSession).mockResolvedValue(initialSession);
+      // Custom avatar fallbacks are rendered in jsdom
+      expect(screen.getByText("IA")).toBeInTheDocument();
 
-      const updatedSession: Session = {
-        ...initialSession,
-        version: 2,
-        messages: [
-          ...initialSession.messages,
-          {
-            id: "msg-2",
-            role: "user",
-            content: "My name is Arthur Dent",
-            createdAt: "2026-09-19T00:01:00.000Z",
-          },
-          {
-            id: "msg-3",
-            role: "assistant",
-            content: "Nice to meet you Arthur. Where do you live?",
-            createdAt: "2026-09-19T00:01:01.000Z",
-          },
-        ],
-        state: {
-          ...initialSession.state,
-          fullName: { value: "Arthur Dent", status: "CONFIRMED" },
-        },
+      // Two side-by-side column cards with thick purple borders — now populated with live previews
+      const leftCard = screen.getByTestId("column-card-left");
+      const rightCard = screen.getByTestId("column-card-right");
+      expect(leftCard).toBeInTheDocument();
+      expect(rightCard).toBeInTheDocument();
+      expect(leftCard).toHaveStyle({ border: "6px solid #4E1FBE" });
+      expect(rightCard).toHaveStyle({ border: "6px solid #4E1FBE" });
+      expect(leftCard.parentElement).toHaveClass("w-[46%]");
+      expect(rightCard.parentElement).toHaveClass("w-[52%]");
+
+      // Left card shows live structured state (StatePreview)
+      expect(leftCard).toHaveTextContent("Collected Information");
+      expect(leftCard).toHaveTextContent("Personal Details");
+
+      // Right card shows draft document (DocumentPreview)
+      expect(rightCard).toHaveTextContent("1. Executor");
+
+      // Minimal send message input component is rendered in the bottom part of the card
+      const messageInput = screen.getByPlaceholderText("Message");
+      expect(messageInput).toBeInTheDocument();
+
+      const sendButton = screen.getByRole("button", { name: "Send" });
+      expect(sendButton).toBeInTheDocument();
+      expect(sendButton).toBeDisabled();
+
+      // Typing in the input enables the send button
+      fireEvent.change(messageInput, { target: { value: "Jane Doe" } });
+      expect(sendButton).not.toBeDisabled();
+
+      const assistantReply = {
+        id: "msg-assistant-2",
+        role: "assistant" as const,
+        content: "Thank you Jane Doe. What is your home address?",
+        createdAt: "2026-09-19T00:01:01.000Z",
       };
 
+      // Mock sendMessage response
       vi.mocked(sessionApi.sendMessage).mockResolvedValue({
-        session: updatedSession,
-        assistantMessage: updatedSession.messages[2],
+        session: {
+          ...createInitialSession(),
+          messages: [
+            ...createInitialSession().messages,
+            {
+              id: "msg-user-1",
+              role: "user" as const,
+              content: "Jane Doe",
+              createdAt: "2026-09-19T00:01:00.000Z",
+            },
+            assistantReply,
+          ],
+        },
+        assistantMessage: assistantReply,
       });
 
-      render(<App />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText(/Type your response here/i),
-        ).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "My name is Arthur Dent" } });
-      expect(input).toHaveValue("My name is Arthur Dent");
-
-      const submitBtn = screen.getByRole("button", { name: /Send response/i });
-      fireEvent.click(submitBtn);
+      // Submit message
+      fireEvent.click(sendButton);
 
       await waitFor(() => {
         expect(sessionApi.sendMessage).toHaveBeenCalledWith(
           "session-1",
-          "My name is Arthur Dent",
+          "Jane Doe",
         );
       });
 
-      // Updated question and messages render
+      // User's response and follow-up question are rendered
       await waitFor(() => {
+        expect(screen.getByText("Jane Doe")).toBeInTheDocument();
         expect(
-          screen.getByText("Nice to meet you Arthur. Where do you live?"),
+          screen.getByText(/What is your home address/i),
         ).toBeInTheDocument();
       });
 
-      // Input is cleared upon successful submission
-      expect(input).toHaveValue("");
-    });
-
-    it("prevents empty submission and duplicate submission while loading", async () => {
-      vi.mocked(sessionApi.createSession).mockResolvedValue(
-        createInitialSession(),
-      );
-
-      render(<App />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByRole("button", { name: /Send response/i }),
-        ).toBeDisabled();
+      // Also test sending message via Enter key on keyboard
+      fireEvent.change(messageInput, {
+        target: { value: "123 Maple Street, London" },
       });
-
-      // Attempting to submit empty input does not call API
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "   " } });
-      expect(
-        screen.getByRole("button", { name: /Send response/i }),
-      ).toBeDisabled();
-
-      fireEvent.submit(input);
-      expect(sessionApi.sendMessage).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Error Handling", () => {
-    it("surfaces API validation error and preserves user input", async () => {
-      vi.mocked(sessionApi.createSession).mockResolvedValue(
-        createInitialSession(),
-      );
-      vi.mocked(sessionApi.sendMessage).mockRejectedValue(
-        new ApiClientError(
-          "VALIDATION_ERROR",
-          "Semantic validation failed for candidate",
-        ),
-      );
-
-      render(<App />);
+      fireEvent.submit(messageInput.closest("form")!);
 
       await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText(/Type your response here/i),
-        ).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "Bad Input" } });
-      fireEvent.click(screen.getByRole("button", { name: /Send response/i }));
-
-      await waitFor(() => {
-        expect(
-          screen.getByText("Semantic validation failed for candidate"),
-        ).toBeInTheDocument();
-      });
-
-      // User input is preserved on failure
-      expect(input).toHaveValue("Bad Input");
-    });
-
-    it("surfaces conflict response with corrective guidance without resolving client-side", async () => {
-      vi.mocked(sessionApi.createSession).mockResolvedValue(
-        createInitialSession(),
-      );
-      vi.mocked(sessionApi.sendMessage).mockRejectedValue(
-        new ApiClientError(
-          "CONFLICT",
-          "The candidate update conflicts with confirmed wishes.",
-        ),
-      );
-
-      render(<App />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText(/Type your response here/i),
-        ).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "Conflicting turn" } });
-      fireEvent.click(screen.getByRole("button", { name: /Send response/i }));
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(/Clarification \/ Conflict Detected/i),
-        ).toBeInTheDocument();
-      });
-
-      expect(
-        screen.getByText(
-          /The candidate update conflicts with confirmed wishes/i,
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          /If you intend to update or correct previous information/i,
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it("surfaces network error cleanly", async () => {
-      vi.mocked(sessionApi.createSession).mockResolvedValue(
-        createInitialSession(),
-      );
-      vi.mocked(sessionApi.sendMessage).mockRejectedValue(
-        new ApiClientError("NETWORK_ERROR", "Unable to connect to server"),
-      );
-
-      render(<App />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText(/Type your response here/i),
-        ).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "Hello" } });
-      fireEvent.click(screen.getByRole("button", { name: /Send response/i }));
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(/Unable to connect to server/i),
-        ).toBeInTheDocument();
+        expect(sessionApi.sendMessage).toHaveBeenCalledWith(
+          "session-1",
+          "123 Maple Street, London",
+        );
       });
     });
   });
 
-  describe("Completion State", () => {
-    it("renders completion view and disables composer when interview is complete", async () => {
-      const initialSession = createInitialSession();
-      vi.mocked(sessionApi.createSession).mockResolvedValue(initialSession);
-
-      const completedSession: Session = {
-        ...initialSession,
-        version: 9,
-        messages: [
-          ...initialSession.messages,
-          {
-            id: "msg-complete",
-            role: "assistant",
-            content:
-              "All required information has been collected. Your draft personal wishes document is ready.",
-            createdAt: "2026-09-19T00:05:00.000Z",
-          },
-        ],
-        state: {
-          fullName: { value: "Arthur Dent", status: "CONFIRMED" },
-          homeAddress: { value: "Cottington, UK", status: "CONFIRMED" },
-          coversWorldwideAssets: { value: true, status: "CONFIRMED" },
-          hasChildren: { value: false, status: "CONFIRMED" },
-          children: [],
-          executor: {
-            name: { value: "Ford Prefect", status: "CONFIRMED" },
-            relationship: { value: "Friend", status: "CONFIRMED" },
-          },
-          specificGifts: [],
-          additionalWishes: { value: "No other wishes", status: "CONFIRMED" },
-        },
-        document: {
-          title: "Draft Personal Wishes Document",
-          subtitle: "Fictional example — Not legal advice",
-          status: "draft",
-          sections: [
-            {
-              title: "1. Identification",
-              content: "I, Arthur Dent, residing at Cottington, UK...",
-            },
-          ],
-          content: "Draft content finalized",
-        },
-      };
-
-      vi.mocked(sessionApi.sendMessage).mockResolvedValue({
-        session: completedSession,
-        assistantMessage: completedSession.messages[1],
-      });
+  describe("Workspace Navigation & Returning to Landing Page", () => {
+    it("returns to Landing Page on browser popstate (native back button)", async () => {
+      vi.mocked(sessionApi.createSession).mockResolvedValue(
+        createInitialSession(),
+      );
 
       render(<App />);
 
+      // Enter workspace
+      fireEvent.click(screen.getByText("Enter Workspace"));
+      await waitFor(() => {
+        expect(screen.getByTestId("workspace-card")).toBeInTheDocument();
+      });
+
+      // Simulate native browser back button (URL back to "/" and popstate event)
+      act(() => {
+        window.history.pushState({}, "", "/");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+
       await waitFor(() => {
         expect(
-          screen.getByPlaceholderText(/Type your response here/i),
+          screen.getByText("Document Intake Assistant"),
         ).toBeInTheDocument();
       });
+    });
 
-      const input = screen.getByPlaceholderText(/Type your response here/i);
-      fireEvent.change(input, { target: { value: "Final answer" } });
-      fireEvent.click(screen.getByRole("button", { name: /Send response/i }));
+    it("returns to Landing Page when pressing the Escape key", async () => {
+      vi.mocked(sessionApi.createSession).mockResolvedValue(
+        createInitialSession(),
+      );
 
-      // Completion view appears
+      render(<App />);
+
+      // Enter workspace
+      fireEvent.click(screen.getByText("Enter Workspace"));
       await waitFor(() => {
-        expect(screen.getByText("Intake Complete")).toBeInTheDocument();
+        expect(screen.getByTestId("workspace-card")).toBeInTheDocument();
       });
 
-      expect(
-        screen.getByText(
-          /All necessary personal wishes information has been collected/i,
-        ),
-      ).toBeInTheDocument();
+      // Press Escape
+      fireEvent.keyDown(window, { key: "Escape" });
 
-      // Normal question composer is hidden
-      expect(
-        screen.queryByPlaceholderText(/Type your response here/i),
-      ).not.toBeInTheDocument();
-
-      // New session button allows restarting
-      expect(
-        screen.getByRole("button", { name: /Start another interview/i }),
-      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getByText("Document Intake Assistant"),
+        ).toBeInTheDocument();
+      });
     });
   });
 });

@@ -8,3 +8,4 @@ export * from "./InformationPanel";
 export * from "./CompletionView";
 export * from "./ConversationPanel";
 export * from "./LandingView";
+export * from "./json-editor";

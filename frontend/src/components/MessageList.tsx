@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, RefreshCw } from "lucide-react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Message as MessageType } from "../types";
 import {
   Message,
@@ -7,54 +6,96 @@ import {
   MessageContent,
   MessageFooter,
   MessageGroup,
-  MessageHeader,
 } from "./ui/message";
+import { Bubble, BubbleContent } from "./ui/bubble";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 interface MessageListProps {
   messages: readonly MessageType[];
   isLoading?: boolean;
-  onRetry?: (messageId: string) => void;
 }
 
-const ASSISTANT_AVATAR_URL =
-  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80";
-const USER_AVATAR_URL =
+const OLIVER_AVATAR_IMG =
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80";
+const USER_AVATAR_IMG =
   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
 
-const formatTime = (value?: string) => {
-  if (!value) return "";
+const OliverAvatar: React.FC = () => (
+  <Avatar className="size-8 ring-1 ring-white/20 bg-white overflow-hidden shadow-xs shrink-0">
+    <AvatarImage src={OLIVER_AVATAR_IMG} alt="Oliver" />
+    <AvatarFallback className="bg-white text-zinc-900 p-0.5">
+      <svg viewBox="0 0 36 36" fill="none" className="size-full">
+        <circle cx="18" cy="18" r="17" fill="#ffffff" />
+        <path
+          d="M10 14C10 10 13 8 18 8C23 8 26 10 26 14C26 16 25 18 25 18H11C11 18 10 16 10 14Z"
+          fill="#18181b"
+        />
+        <circle
+          cx="15.5"
+          cy="18"
+          r="2.5"
+          stroke="#18181b"
+          strokeWidth="1.5"
+          fill="#ffffff"
+        />
+        <circle
+          cx="20.5"
+          cy="18"
+          r="2.5"
+          stroke="#18181b"
+          strokeWidth="1.5"
+          fill="#ffffff"
+        />
+        <line
+          x1="18"
+          y1="18"
+          x2="18"
+          y2="18"
+          stroke="#18181b"
+          strokeWidth="1.5"
+        />
+        <path
+          d="M16 22C16.8 22.8 19.2 22.8 20 22"
+          stroke="#18181b"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </AvatarFallback>
+  </Avatar>
+);
 
-  try {
-    return new Date(value).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-};
-
-const formatSendStatus = (status?: MessageType["status"]) => {
-  switch (status) {
-    case "sending":
-      return "Sending";
-    case "streaming":
-      return "Streaming";
-    case "error":
-      return "Failed";
-    default:
-      return "Sent";
-  }
-};
+const UserAvatar: React.FC = () => (
+  <Avatar className="size-8 ring-1 ring-white/20 bg-zinc-900 overflow-hidden shadow-xs shrink-0">
+    <AvatarImage src={USER_AVATAR_IMG} alt="User" />
+    <AvatarFallback className="bg-zinc-950 text-white p-0.5">
+      <svg viewBox="0 0 36 36" fill="none" className="size-full">
+        <circle cx="18" cy="18" r="17" fill="#18181b" />
+        <path
+          d="M10 17C10 10 13 8 18 8C23 8 26 10 26 17C26 23 24 25 24 25C23 22 23 18 23 18C23 18 22 13 18 13C14 13 13 18 13 18C13 18 13 22 12 25C12 25 10 23 10 17Z"
+          fill="#ffffff"
+        />
+        <ellipse
+          cx="18"
+          cy="18"
+          rx="4.5"
+          ry="5.5"
+          fill="#18181b"
+          stroke="#ffffff"
+          strokeWidth="1.2"
+        />
+        <circle cx="16.5" cy="17.5" r="0.8" fill="#ffffff" />
+        <circle cx="19.5" cy="17.5" r="0.8" fill="#ffffff" />
+      </svg>
+    </AvatarFallback>
+  </Avatar>
+);
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
   isLoading,
-  onRetry,
 }) => {
   const scrollEndRef = useRef<HTMLDivElement>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,169 +118,89 @@ export const MessageList: React.FC<MessageListProps> = ({
     return groups;
   }, [messages]);
 
-  const handleCopy = async (value: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedId(messageId);
-      window.setTimeout(
-        () =>
-          setCopiedId((current) => (current === messageId ? null : current)),
-        1200,
-      );
-    } catch {
-      setCopiedId(null);
-    }
-  };
-
   return (
     <div
-      className="flex flex-col gap-4 py-4 px-2"
+      className="flex flex-col gap-6 py-4 px-2 max-w-2xl mx-auto min-h-full justify-end"
       role="log"
-      aria-label="Interview conversation messages"
+      aria-label="Conversation messages"
       aria-live="polite"
     >
-      {groupedMessages.map((group) => {
-        const isAssistantGroup = group.role === "assistant";
+      {groupedMessages.map((group, groupIndex) => {
+        const isUser = group.role === "user";
 
         return (
           <MessageGroup
-            key={group.role + group.items[0]?.id}
-            className="gap-2.5"
+            key={`group-${groupIndex}-${group.items[0]?.id}`}
+            className="gap-2"
           >
             {group.items.map((msg, index) => {
-              const isUser = msg.role === "user";
-              const isSystem = msg.role === "system";
-              const formattedTime = formatTime(msg.createdAt);
-              const isError = msg.status === "error";
-              const isStreaming = msg.status === "streaming";
-              const showMeta = !!formattedTime || msg.status !== undefined;
+              const isLastInGroup = index === group.items.length - 1;
 
-              const bubbleClasses = isUser
-                ? "rounded-2xl rounded-br-sm bg-[#4E1FBE] text-white shadow-[0_12px_24px_-14px_rgba(78,31,190,0.8)]"
-                : isSystem
-                  ? "rounded-2xl border border-dashed border-[#4E1FBE]/35 bg-[#F4EDFF] text-[#360097]"
-                  : "rounded-2xl rounded-bl-sm border border-[#4E1FBE]/15 bg-white text-[#1D1A23] shadow-[0_8px_18px_-12px_rgba(36,0,103,0.45)]";
+              if (isUser) {
+                return (
+                  <div key={msg.id} className="flex flex-col items-end">
+                    <Message align="end" className="gap-2.5 items-end">
+                      <MessageContent className="items-end max-w-[85%]">
+                        <Bubble className="rounded-[22px] rounded-br-[4px] bg-[#2563eb] text-white shadow-sm transition-all">
+                          <BubbleContent className="px-4 py-2.5 text-[15px] font-normal leading-relaxed text-white">
+                            {msg.content}
+                          </BubbleContent>
+                        </Bubble>
+                      </MessageContent>
 
+                      <MessageAvatar className="size-8 shrink-0 self-end">
+                        {isLastInGroup ? (
+                          <UserAvatar />
+                        ) : (
+                          <div className="size-8" aria-hidden="true" />
+                        )}
+                      </MessageAvatar>
+                    </Message>
+
+                    {isLastInGroup && (
+                      <MessageFooter className="text-zinc-400 text-xs mt-1 mr-10 justify-end font-normal">
+                        Delivered
+                      </MessageFooter>
+                    )}
+                  </div>
+                );
+              }
+
+              // Assistant / other incoming message
               return (
                 <Message
                   key={msg.id}
-                  align={isUser ? "end" : "start"}
-                  className={isUser ? "gap-2" : "gap-2"}
+                  align="start"
+                  className="gap-2.5 items-end"
                 >
-                  {!isUser && !isSystem && (
-                    <MessageAvatar className="size-8 shrink-0">
-                      {index === 0 ? (
-                        <Avatar className="size-8 ring-1 ring-[#4E1FBE]/25 shadow-xs bg-[#E2D6FF]">
-                          <AvatarImage
-                            src={ASSISTANT_AVATAR_URL}
-                            alt="Assistant"
-                          />
-                          <AvatarFallback className="bg-[#E2D6FF] text-[#360097] text-xs font-bold">
-                            AI
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="size-8" aria-hidden="true" />
+                  <MessageAvatar className="size-8 shrink-0 self-end">
+                    {isLastInGroup ? (
+                      <OliverAvatar />
+                    ) : (
+                      <div className="size-8" aria-hidden="true" />
+                    )}
+                  </MessageAvatar>
+
+                  <MessageContent className="items-start max-w-[85%]">
+                    <div className="relative group">
+                      <Bubble className="rounded-[22px] rounded-bl-[4px] bg-[#27272a] text-white shadow-sm">
+                        <BubbleContent className="px-4 py-2.5 text-[15px] font-normal leading-relaxed text-white">
+                          {msg.content}
+                        </BubbleContent>
+                      </Bubble>
+
+                      {/* Optional reaction indicator on later confirmed assistant messages */}
+                      {isLastInGroup && groupIndex > 0 && (
+                        <span
+                          className="absolute -bottom-2.5 right-2 inline-flex items-center bg-[#27272a] border border-[#3f3f46] rounded-full px-1.5 py-0.5 text-xs shadow-md select-none"
+                          role="img"
+                          aria-label="Reaction thumbs up"
+                        >
+                          👍
+                        </span>
                       )}
-                    </MessageAvatar>
-                  )}
-
-                  <MessageContent
-                    className={isUser ? "items-end" : "items-start"}
-                  >
-                    {!isSystem && (
-                      <MessageHeader className="mb-1 flex items-center gap-2 px-1 text-[11px] font-semibold text-[#494454]">
-                        <span>{isUser ? "You" : "Intake Assistant"}</span>
-                        {!isUser && (
-                          <span className="size-1.5 rounded-full bg-[#34c759]" />
-                        )}
-                      </MessageHeader>
-                    )}
-
-                    <div
-                      className={`w-fit max-w-[min(80%,36rem)] break-words whitespace-pre-wrap ${bubbleClasses}`}
-                      style={{
-                        wordBreak: "break-word",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      <div className="px-4 py-3 text-sm leading-relaxed md:text-[0.96rem]">
-                        {msg.content}
-                      </div>
                     </div>
-
-                    {showMeta && (
-                      <MessageFooter className="mt-1 flex items-center gap-2 px-1 text-[10px] text-[#797482]">
-                        {formattedTime && <span>{formattedTime}</span>}
-                        {msg.status && !isUser && (
-                          <span className="font-medium text-[#494454]">
-                            {formatSendStatus(msg.status)}
-                          </span>
-                        )}
-                      </MessageFooter>
-                    )}
-
-                    {isAssistantGroup && (
-                      <div className="mt-1 flex items-center justify-end gap-1 px-1">
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(msg.content, msg.id)}
-                          className="inline-flex items-center gap-1 rounded-full border border-[#4E1FBE]/15 bg-white px-2 py-1 text-[10px] font-medium text-[#360097] transition hover:bg-[#F3ECFF]"
-                          aria-label={`Copy assistant message ${msg.id}`}
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className="size-3.5" />
-                          ) : (
-                            <Copy className="size-3.5" />
-                          )}
-                          {copiedId === msg.id ? "Copied" : "Copy"}
-                        </button>
-
-                        {isError && onRetry && (
-                          <button
-                            type="button"
-                            onClick={() => onRetry(msg.id)}
-                            className="inline-flex items-center gap-1 rounded-full border border-[#4E1FBE]/15 bg-white px-2 py-1 text-[10px] font-medium text-[#360097] transition hover:bg-[#F3ECFF]"
-                            aria-label={`Retry assistant message ${msg.id}`}
-                          >
-                            <RefreshCw className="size-3.5" />
-                            Retry
-                          </button>
-                        )}
-
-                        {!isError && !isStreaming && null}
-                      </div>
-                    )}
-
-                    {isUser && (
-                      <div className="mt-1 flex items-center justify-end gap-1 px-1">
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(msg.content, msg.id)}
-                          className="inline-flex items-center gap-1 rounded-full border border-[#4E1FBE]/15 bg-white px-2 py-1 text-[10px] font-medium text-[#360097] transition hover:bg-[#F3ECFF]"
-                          aria-label={`Copy user message ${msg.id}`}
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className="size-3.5" />
-                          ) : (
-                            <Copy className="size-3.5" />
-                          )}
-                          {copiedId === msg.id ? "Copied" : "Copy"}
-                        </button>
-                      </div>
-                    )}
                   </MessageContent>
-
-                  {isUser && (
-                    <MessageAvatar className="size-8 shrink-0">
-                      <Avatar className="size-8 ring-1 ring-[#4E1FBE]/30 shadow-xs bg-[#FCF6EE]">
-                        <AvatarImage src={USER_AVATAR_URL} alt="User" />
-                        <AvatarFallback className="bg-[#4E1FBE] text-white text-xs font-bold">
-                          U
-                        </AvatarFallback>
-                      </Avatar>
-                    </MessageAvatar>
-                  )}
                 </Message>
               );
             })}
@@ -247,37 +208,14 @@ export const MessageList: React.FC<MessageListProps> = ({
         );
       })}
 
+      {/* Typing indicator matching screenshot: "Oliver is typing..." */}
       {isLoading && (
-        <MessageGroup className="gap-2.5">
-          <Message align="start" className="gap-2.5">
-            <MessageAvatar className="size-8 shrink-0">
-              <Avatar className="size-8 ring-1 ring-[#4E1FBE]/25 shadow-xs bg-[#E2D6FF]">
-                <AvatarImage src={ASSISTANT_AVATAR_URL} alt="Assistant" />
-                <AvatarFallback className="bg-[#E2D6FF] text-[#360097] text-xs font-bold">
-                  AI
-                </AvatarFallback>
-              </Avatar>
-            </MessageAvatar>
-
-            <MessageContent className="items-start">
-              <MessageHeader className="mb-1 flex items-center gap-2 px-1 text-[11px] font-semibold text-[#494454]">
-                <span>Intake Assistant</span>
-                <span className="size-1.5 rounded-full bg-[#34c759]" />
-              </MessageHeader>
-
-              <div
-                className="w-fit max-w-[min(80%,36rem)] rounded-2xl rounded-bl-sm border border-[#4E1FBE]/15 bg-white px-4 py-3 shadow-[0_8px_18px_-12px_rgba(36,0,103,0.45)]"
-                aria-label="Assistant is analyzing your answer"
-              >
-                <div className="flex items-center gap-1.5" aria-live="polite">
-                  <span className="size-1.5 animate-pulse rounded-full bg-[#4E1FBE]" />
-                  <span className="size-1.5 animate-pulse rounded-full bg-[#4E1FBE] [animation-delay:120ms]" />
-                  <span className="size-1.5 animate-pulse rounded-full bg-[#4E1FBE] [animation-delay:240ms]" />
-                </div>
-              </div>
-            </MessageContent>
-          </Message>
-        </MessageGroup>
+        <div
+          className="text-zinc-400 text-sm pl-11 pt-1 flex items-center gap-1.5 font-normal select-none"
+          aria-live="polite"
+        >
+          <span>Oliver is typing...</span>
+        </div>
       )}
 
       <div ref={scrollEndRef} />

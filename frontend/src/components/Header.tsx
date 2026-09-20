@@ -15,10 +15,23 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="app-header bg-[#FCF6EE]/90 backdrop-blur-md border-b border-[#4E1FBE]/15 px-4 sm:px-6 py-3 flex items-center justify-between z-20 shrink-0">
-      <div className="header-brand flex items-center gap-3 sm:gap-4">
+      <div
+        className={`header-brand flex items-center gap-3 sm:gap-4 ${onToggleOverview ? "cursor-pointer group" : ""}`}
+        onClick={onToggleOverview}
+        role={onToggleOverview ? "button" : undefined}
+        tabIndex={onToggleOverview ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (onToggleOverview && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onToggleOverview();
+          }
+        }}
+        aria-label={onToggleOverview ? "Return to Landing Overview" : undefined}
+        title={onToggleOverview ? "Return to Landing Overview" : undefined}
+      >
         {/* Aura Minimalist Brand Icon */}
         <div
-          className="brand-logo size-9 rounded-xl bg-[#4E1FBE] text-white flex items-center justify-center font-bold text-sm shadow-sm relative overflow-hidden group"
+          className="brand-logo size-9 rounded-xl bg-[#4E1FBE] text-white flex items-center justify-center font-bold text-sm shadow-sm relative overflow-hidden group-hover:scale-105 transition-transform"
           aria-hidden="true"
         >
           <span className="relative z-10 font-bold tracking-tight">PW</span>
@@ -28,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="header-title font-bold text-base sm:text-lg text-[#1D1A23] tracking-tight">
+            <h1 className="header-title font-bold text-base sm:text-lg text-[#1D1A23] tracking-tight group-hover:text-[#4E1FBE] transition-colors">
               Personal Wishes Intake
             </h1>
             <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E2D6FF] text-[#360097] border border-[#4E1FBE]/20">
@@ -67,14 +80,17 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onToggleOverview}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#4E1FBE]/20 bg-white/60 hover:bg-white text-[#1D1A23] transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#4E1FBE]/20 bg-white/80 hover:bg-white text-[#1D1A23] hover:text-[#4E1FBE] shadow-xs active:scale-[0.98] transition-all cursor-pointer"
             aria-label={
               isOverviewActive
                 ? "Switch to Intake Workspace"
-                : "Switch to Landing Overview"
+                : "Back to Landing Overview"
             }
           >
-            {isOverviewActive ? "Return to Workspace" : "Landing Overview"}
+            <span className="material-symbols-outlined text-[16px]">
+              {isOverviewActive ? "arrow_forward" : "arrow_back"}
+            </span>
+            <span>{isOverviewActive ? "Enter Workspace" : "Overview"}</span>
           </button>
         )}
 

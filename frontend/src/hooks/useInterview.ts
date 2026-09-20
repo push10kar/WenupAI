@@ -15,12 +15,15 @@ export interface UseInterviewReturn {
 }
 
 /**
- * Checks whether the current session represents a completed intake.
+ * Checks whether the current session represents a completed intake based on
+ * canonical domain state resolution (matching ARCHITECTURE.md Section 6.5).
  */
 export function checkIsComplete(session: Session | null): boolean {
   if (!session) return false;
   const s = session.state;
-  const isAllRequiredConfirmed =
+
+  // Base required scalar fields
+  const isBaseConfirmed =
     s.fullName.status === "CONFIRMED" &&
     s.homeAddress.status === "CONFIRMED" &&
     s.coversWorldwideAssets.status === "CONFIRMED" &&
@@ -29,19 +32,34 @@ export function checkIsComplete(session: Session | null): boolean {
     s.executor.relationship.status === "CONFIRMED" &&
     s.additionalWishes.status === "CONFIRMED";
 
-  if (isAllRequiredConfirmed) return true;
+  if (!isBaseConfirmed) return false;
 
-  // Fallback: check if the assistant's latest message declares completion
-  const lastMsg = session.messages[session.messages.length - 1];
-  if (
-    lastMsg &&
-    lastMsg.role === "assistant" &&
-    lastMsg.content.includes("All required information has been collected")
-  ) {
-    return true;
+  // If user has children, ensure children names have been resolved
+  if (s.hasChildren.value === true) {
+    const hasResolvedChildren =
+      s.children.length > 0 &&
+      s.children.some(
+        (c) =>
+          c.status === "CONFIRMED" ||
+          c.status === "NOT_PROVIDED" ||
+          c.status === "REFUSED",
+      );
+    if (!hasResolvedChildren) {
+      return false;
+    }
   }
 
-  return false;
+  // Ensure specific gifts field is resolved
+  const hasResolvedGifts =
+    s.specificGifts.length > 0 &&
+    s.specificGifts.some(
+      (g) =>
+        g.status === "CONFIRMED" ||
+        g.status === "NOT_PROVIDED" ||
+        g.status === "REFUSED",
+    );
+
+  return hasResolvedGifts;
 }
 
 export function useInterview(): UseInterviewReturn {

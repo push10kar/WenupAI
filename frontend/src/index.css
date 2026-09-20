@@ -5,7 +5,8 @@
 /* Onsite is the single typeface used throughout the application. */
 @font-face {
   font-family: "Onsite";
-  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Regular-BF64b60bd6980ca.otf") format("opentype");
+  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Regular-BF64b60bd6980ca.otf")
+    format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -13,7 +14,8 @@
 
 @font-face {
   font-family: "Onsite";
-  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Medium-BF64b60bd692af5.otf") format("opentype");
+  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Medium-BF64b60bd692af5.otf")
+    format("opentype");
   font-weight: 500 600;
   font-style: normal;
   font-display: swap;
@@ -21,9 +23,34 @@
 
 @font-face {
   font-family: "Onsite";
-  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Bold-BF64b60bd69b69d.otf") format("opentype");
+  src: url("/font/onsite-font-family/OnsiteStandardTRIAL-Bold-BF64b60bd69b69d.otf")
+    format("opentype");
   font-weight: 700 900;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Latin Modern Roman";
+  src: url("/font/latin-modern/LMRoman-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Latin Modern Roman";
+  src: url("/font/latin-modern/LMRoman-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Latin Modern Roman";
+  src: url("/font/latin-modern/LMRoman-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -607,7 +634,7 @@ body {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   width: 100%;
   margin: 0 auto;
   padding: 0;
@@ -781,12 +808,12 @@ body {
 .conversation-panel {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
+  background-color: #ffffff;
+  border: 6px solid #4e1fbe !important;
+  border-radius: 28px !important;
   overflow: hidden;
   height: 100%;
-  box-shadow: 0 4px 20px -2px rgba(78, 31, 190, 0.05);
+  box-shadow: 0 18px 40px -18px rgba(78, 31, 190, 0.22);
 }
 
 .conversation-messages-container {
