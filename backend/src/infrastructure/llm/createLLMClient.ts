@@ -2,10 +2,13 @@ import { AppConfig } from "../../config";
 import { LLMClient } from "./LLMClient";
 import { MockLLMClient } from "./MockLLMClient";
 import { GeminiLLMClient } from "./gemini/GeminiLLMClient";
+import { FallbackLLMClient } from "./FallbackLLMClient";
 import { LLMClientError } from "./errors";
 
 export interface CreateLLMClientOverrides {
   readonly fetch?: typeof fetch;
+  readonly enableFallback?: boolean;
+  readonly fallbackClient?: LLMClient;
 }
 
 /**
@@ -13,11 +16,11 @@ export interface CreateLLMClientOverrides {
  *
  * Supports:
  * - mock -> MockLLMClient
- * - gemini -> GeminiLLMClient
+ * - gemini -> GeminiLLMClient (with optional resilient FallbackLLMClient to MockLLMClient on rate-limits/quotas)
  *
  * Invariants:
- * - No automatic fallback between providers.
- * - Fails clearly when a selected provider lacks its required API key.
+ * - Fails clearly and immediately when a selected provider lacks its required API key.
+ * - Automatic fallback is isolated to runtime transient errors (e.g. HTTP 429 quota exhaustion).
  * - The rest of the application remains provider-agnostic.
  */
 export function createLLMClient(
@@ -35,12 +38,24 @@ export function createLLMClient(
           "CONFIGURATION_ERROR",
         );
       }
-      return new GeminiLLMClient({
+      const geminiClient = new GeminiLLMClient({
         apiKey: cfg.geminiApiKey,
         model: cfg.geminiModel,
         timeoutMs: cfg.llmTimeoutMs,
         fetch: overrides?.fetch,
       });
+
+      const shouldFallback =
+        overrides?.enableFallback ?? cfg.enableFallback ?? false;
+
+      if (shouldFallback) {
+        return new FallbackLLMClient({
+          primary: geminiClient,
+          fallback: overrides?.fallbackClient ?? new MockLLMClient(),
+        });
+      }
+
+      return geminiClient;
     }
 
     default:

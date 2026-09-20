@@ -12,6 +12,7 @@ export interface AppConfig {
   geminiApiKey?: string;
   geminiModel: string;
   llmTimeoutMs: number;
+  enableFallback?: boolean;
 }
 
 export function validateConfig(cfg: AppConfig): void {
@@ -34,4 +35,8 @@ export const config: AppConfig = {
   geminiApiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
   llmTimeoutMs: parseInt(process.env.LLM_TIMEOUT_MS || "15000", 10),
+  enableFallback:
+    process.env.ENABLE_LLM_FALLBACK !== undefined
+      ? process.env.ENABLE_LLM_FALLBACK === "true"
+      : process.env.NODE_ENV !== "test",
 };

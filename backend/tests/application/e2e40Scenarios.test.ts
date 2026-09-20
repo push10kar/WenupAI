@@ -1144,4 +1144,80 @@ describe("Phase 12: Comprehensive 40-Scenario End-to-End Suite", () => {
     expect(doc).toContain("Priya");
     expect(doc).not.toContain("Name: Rahul");
   });
+
+  it("TEST 41 — Production Bug Regression: Brother-in-law Executor & Child Name Extraction", async () => {
+    const session = await service.createSession();
+
+    // Turn 1: Full name
+    await service.processSessionMessage(
+      session.id,
+      "My full name is Jethalal Gada.",
+    );
+
+    // Turn 2: Address
+    await service.processSessionMessage(
+      session.id,
+      "I live at Gokuldham Scoiety, Powder Gully, Mumbai, Maharashtra.",
+    );
+
+    // Turn 3: Worldwide
+    await service.processSessionMessage(
+      session.id,
+      "Yes, my document should cover assets world wide.",
+    );
+
+    // Turn 4: Children status
+    await service.processSessionMessage(session.id, "I have one children");
+
+    // Turn 5: Child name
+    await service.processSessionMessage(
+      session.id,
+      "His name is Tipendra Gada",
+    );
+
+    // Turn 6: Executor
+    await service.processSessionMessage(
+      session.id,
+      "My executor is my brother-in-law Sundar Lal",
+    );
+
+    // Turn 7: Specific gifts
+    await service.processSessionMessage(
+      session.id,
+      "I want my shop under the name of my son",
+    );
+
+    // Turn 8: Additional wishes
+    await service.processSessionMessage(
+      session.id,
+      "Please keep the family photograph together.",
+    );
+
+    const curr = (await service.getSession(session.id))!;
+
+    expect(curr.state.fullName.value).toBe("Jethalal Gada");
+    expect(curr.state.homeAddress.value).toContain("Gokuldham Scoiety");
+    expect(curr.state.coversWorldwideAssets.value).toBe(true);
+    expect(curr.state.hasChildren.value).toBe(true);
+    expect(curr.state.children.map((c) => c.value)).toEqual(["Tipendra Gada"]);
+
+    // Key assertions: executor.name must be cleanly isolated and relationship properly formatted
+    expect(curr.state.executor.name.value).toBe("Sundar Lal");
+    expect(curr.state.executor.relationship.value).toBe("Brother-in-law");
+
+    expect(curr.state.specificGifts.map((g) => g.value)).toEqual([
+      "I want my shop under the name of my son",
+    ]);
+    expect(curr.state.additionalWishes.value).toBe(
+      "Please keep the family photograph together.",
+    );
+
+    // Document checks
+    const doc = curr.document.content;
+    expect(doc).toContain("Name: Sundar Lal");
+    expect(doc).toContain("Relationship: Brother-in-law");
+    expect(doc).not.toContain("my brother-in-law Sundar Lal");
+    expect(doc).toContain("Tipendra Gada");
+    expect(doc).not.toContain("His name is tipendra gada");
+  });
 });

@@ -5,3 +5,4 @@ export * from "./MockLLMClient";
 export * from "./prompts";
 export * from "./gemini/GeminiLLMClient";
 export * from "./createLLMClient";
+export * from "./FallbackLLMClient";

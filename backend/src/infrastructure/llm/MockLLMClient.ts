@@ -356,25 +356,37 @@ export class MockLLMClient implements LLMClient {
     }
 
     // --- 3. Executor Information Extraction ---
-    const executorNameRegex =
-      /(?:(?:my\s+)?executor\s+(?:is|will\s+be)\s+([A-Za-z\s]+?))(?:\.|$|,|\band\b)/i;
+    const relWordsPattern =
+      "brother-in-law|sister-in-law|father-in-law|mother-in-law|son-in-law|daughter-in-law|brother\\s+in\\s+law|sister\\s+in\\s+law|brother|sister|friend|spouse|wife|husband|son|daughter|cousin|uncle|aunt|nephew|niece|mother|father|partner|colleague|lawyer|solicitor";
+
+    const executorNameRegex = new RegExp(
+      `(?:(?:my\\s+)?executor\\s+(?:is|will\\s+be)\\s+([A-Za-z\\s'-]+?))(?:\\.|$|,|\\band\\b)`,
+      "i",
+    );
     const executorNameMatch = rawText.match(executorNameRegex);
 
     const relMatch = rawText.match(
-      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+(?:is|will\s+be)\s+(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|(?:[A-Za-z\s]+)\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)[.,!]?$)/i,
+      new RegExp(
+        `(?:my\\s+(${relWordsPattern})\\s+(?:will\\s+be\\s+my\\s+executor|[A-Za-z\\s'-]+\\s+is\\s+my\\s+executor)|my\\s+executor\\s+(?:is|will\\s+be)\\s+(?:my\\s+)?(${relWordsPattern})|(?:[A-Za-z\\s'-]+)\\s+is\\s+my\\s+(${relWordsPattern})|^(?:it(?:'s|\\s+is)\\s+)?(?:my\\s+)?(${relWordsPattern})[.,!]?$)`,
+        "i",
+      ),
     );
 
     const isRelationshipOnly =
       relMatch !== null &&
-      /^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(?:brother|sister|friend|spouse|wife|husband|son|daughter|cousin)(?:\s+(?:will\s+be\s+my\s+executor|is\s+my\s+executor))?[.,!]?$/i.test(
-        rawText.trim(),
-      );
+      new RegExp(
+        `^(?:it(?:'s|\\s+is)\\s+)?(?:my\\s+)?(?:${relWordsPattern})(?:\\s+(?:will\\s+be\\s+my\\s+executor|is\\s+my\\s+executor))?[.,!]?$`,
+        "i",
+      ).test(rawText.trim());
 
     if (executorNameMatch && !isRelationshipOnly) {
       const rawName = executorNameMatch[1].trim();
       const cleanName = rawName
         .replace(
-          /^(?:my\s+)?(?:brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+/i,
+          new RegExp(
+            `^(?:my\\s+)?(?:${relWordsPattern})\\s+(?:named\\s+|called\\s+)?`,
+            "i",
+          ),
           "",
         )
         .trim();
@@ -392,6 +404,13 @@ export class MockLLMClient implements LLMClient {
           /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
           "",
         )
+        .replace(
+          new RegExp(
+            `^(?:my\\s+)?(?:${relWordsPattern})\\s+(?:named\\s+|called\\s+)?`,
+            "i",
+          ),
+          "",
+        )
         .trim();
       const value = clean.length > 0 ? clean : "James Dent";
       updates.push({
@@ -405,9 +424,17 @@ export class MockLLMClient implements LLMClient {
     if (relMatch) {
       const rel = relMatch.slice(1).find((g) => Boolean(g));
       if (rel) {
+        const formattedRel = rel
+          .replace(/\s+in\s+law/i, "-in-law")
+          .split("-")
+          .map((part, idx) =>
+            idx === 0 ? capitalizeWord(part) : part.toLowerCase(),
+          )
+          .join("-");
+
         updates.push({
           field: "executor.relationship",
-          value: capitalizeWord(rel),
+          value: formattedRel,
           intent: "NEW",
           confidence: "CLEAR",
         });
@@ -419,7 +446,7 @@ export class MockLLMClient implements LLMClient {
       const value = clean.length > 0 ? clean : "Brother";
       updates.push({
         field: "executor.relationship",
-        value,
+        value: capitalizeWord(value),
         intent: "NEW",
         confidence: "CLEAR",
       });
@@ -901,6 +928,10 @@ function parseChildrenFromText(
       /^(?:yes[,\s]*)?(?:their\s+names\s+are\s+|names\s+are\s+)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)?(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
       "",
     )
+    .replace(
+      /^(?:(?:his|her|their|my|the\s+child's|the\s+children's)\s+names?\s+(?:is|are)\s+|called\s+|named\s+)/i,
+      "",
+    )
     .trim();
   cleaned = cleaned.replace(/\.$/, "").trim();
 
@@ -914,7 +945,7 @@ function parseChildrenFromText(
 
   const parts = cleaned
     .split(/,|;|\band\b/i)
-    .map((s) => capitalizeWord(s.trim()))
+    .map((s) => s.trim().split(/\s+/).map(capitalizeWord).join(" "))
     .filter(
       (s) =>
         s.length > 0 &&
