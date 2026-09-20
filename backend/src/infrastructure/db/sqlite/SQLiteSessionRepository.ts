@@ -382,7 +382,7 @@ export class SQLiteSessionRepository implements SessionRepository {
         sessionId,
         userMessage.role,
         userMessage.content,
-        userMessage.createdAt,
+        userMessage.createdAt ?? now,
       );
 
       // 2. Update state with optimistic concurrency check
@@ -448,7 +448,7 @@ export class SQLiteSessionRepository implements SessionRepository {
           sessionId,
           assistantMessage.role,
           assistantMessage.content,
-          assistantMessage.createdAt,
+          assistantMessage.createdAt ?? now,
         );
       }
 

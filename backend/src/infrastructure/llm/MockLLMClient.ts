@@ -192,7 +192,21 @@ export class MockLLMClient implements LLMClient {
     const updates: CandidateOperation[] = [];
 
     // --- 1. Full Name Extraction ---
-    if (activeField === "fullName") {
+    const explicitIntro =
+      /(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm|call\s+me)\s+[A-Za-z]/i.test(
+        rawText,
+      );
+    const startsWithName = /^[A-Za-z'-]+(?:\s+[A-Za-z'-]+)+[,\s.]/i.test(
+      rawText,
+    );
+
+    if (
+      activeField === "fullName" &&
+      !/^(?:i\s+have|my\s+(?:executor|address)|i\s+live\s+at)/i.test(rawText) &&
+      (explicitIntro ||
+        startsWithName ||
+        !/(?:children|kids|executor|live\s+at|address\s+is)/i.test(rawText))
+    ) {
       const value = extractNameFact(rawText);
       updates.push({
         field: "fullName",
@@ -347,7 +361,7 @@ export class MockLLMClient implements LLMClient {
     const executorNameMatch = rawText.match(executorNameRegex);
 
     const relMatch = rawText.match(
-      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)[.,!]?$)/i,
+      /(?:my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)\s+(?:will\s+be\s+my\s+executor|[A-Za-z\s]+\s+is\s+my\s+executor)|my\s+executor\s+(?:is|will\s+be)\s+(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|(?:[A-Za-z\s]+)\s+is\s+my\s+(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)|^(?:it(?:'s|\s+is)\s+)?(?:my\s+)?(brother|sister|friend|spouse|wife|husband|son|daughter|cousin)[.,!]?$)/i,
     );
 
     const isRelationshipOnly =
@@ -389,13 +403,15 @@ export class MockLLMClient implements LLMClient {
     }
 
     if (relMatch) {
-      const rel = relMatch[1] || relMatch[2] || relMatch[3];
-      updates.push({
-        field: "executor.relationship",
-        value: capitalizeWord(rel),
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
+      const rel = relMatch.slice(1).find((g) => Boolean(g));
+      if (rel) {
+        updates.push({
+          field: "executor.relationship",
+          value: capitalizeWord(rel),
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
     } else if (activeField === "executor.relationship") {
       const clean = rawText
         .replace(/^(?:he is my|she is my|they are my|my)\s+/i, "")
@@ -416,30 +432,55 @@ export class MockLLMClient implements LLMClient {
       );
 
     const addressMatch = rawText.match(
-      /(?:i\s+live\s+at|my\s+address\s+is|address\s+is|moved\s+to)\s+([^,.]+)/i,
+      /(?:i\s+live\s+at|my\s+address\s+is|address\s+is|moved\s+to|address\s+is\s+now)\s+([^.]*?)(?:\s+(?:and\s+)?(?:i\s+have|i\s+don't\s+have|i\s+do\s+not\s+have|my\s+executor|worldwide|and\s+i\s+want)|\s+and\s+my|\.|$)/i,
     );
     if (activeField === "homeAddress") {
-      const clean = rawText
-        .replace(/^(?:i live at|my address is)\s+/i, "")
-        .trim();
-      const addressClause = clean
-        .split(/(?:,|\.|\band\b)\s*(?:i\s+have|my\s+executor|worldwide)/i)[0]
-        .trim();
-      const value =
-        addressClause.length > 0
-          ? addressClause
-          : "42 Country Lane, Cottington";
-      updates.push({
-        field: "homeAddress",
-        value,
-        intent: isAddressCorrection ? "CORRECTION" : "NEW",
-        confidence: "CLEAR",
-      });
+      if (isRefusal(rawText)) {
+        updates.push({
+          field: "homeAddress",
+          value: null,
+          status: "REFUSED",
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      } else if (isNonAnswer(rawText)) {
+        updates.push({
+          field: "homeAddress",
+          value: null,
+          status: "NOT_PROVIDED",
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      } else {
+        let rawClean = rawText
+          .replace(/^(?:i live at|my address is|address is|moved to)\s+/i, "")
+          .trim();
+        if (
+          /^(?:i live at|my address is|address is|moved to)\s+/i.test(rawText)
+        ) {
+          rawClean = rawClean.replace(/\.$/, "").trim();
+        }
+        const value =
+          rawClean.length > 0 ? rawClean : "42 Country Lane, Cottington";
+        updates.push({
+          field: "homeAddress",
+          value,
+          intent: isAddressCorrection ? "CORRECTION" : "NEW",
+          confidence: "CLEAR",
+        });
+      }
     } else if (
       addressMatch &&
       input.currentState.homeAddress.status === "UNKNOWN"
     ) {
-      const cleanAddress = addressMatch[1].replace(/\s+now$/i, "").trim();
+      const cleanAddress = addressMatch[1]
+        .split(
+          /(?:,|\.|\band\b)\s*(?:i\s+have|i\s+don't\s+have|i\s+do\s+not\s+have|my\s+executor|worldwide|and\s+i\s+want)/i,
+        )[0]
+        .replace(/^now\s+/i, "")
+        .replace(/\s+now$/i, "")
+        .replace(/^[,\s.;]+|[,\s.;]+$/g, "")
+        .trim();
       updates.push({
         field: "homeAddress",
         value: cleanAddress,
@@ -451,7 +492,14 @@ export class MockLLMClient implements LLMClient {
       isAddressCorrection &&
       input.currentState.homeAddress.status === "CONFIRMED"
     ) {
-      const cleanAddress = addressMatch[1].replace(/\s+now$/i, "").trim();
+      const cleanAddress = addressMatch[1]
+        .split(
+          /(?:,|\.|\band\b)\s*(?:i\s+have|i\s+don't\s+have|i\s+do\s+not\s+have|my\s+executor|worldwide|and\s+i\s+want)/i,
+        )[0]
+        .replace(/^now\s+/i, "")
+        .replace(/\s+now$/i, "")
+        .replace(/^[,\s.;]+|[,\s.;]+$/g, "")
+        .trim();
       updates.push({
         field: "homeAddress",
         value: cleanAddress,
@@ -462,7 +510,7 @@ export class MockLLMClient implements LLMClient {
 
     // --- 5. Worldwide Assets Extraction ---
     const assetsMentioned =
-      /(?:worldwide\s+assets|cover\s+worldwide|assets\s+worldwide)/i.test(
+      /(?:worldwide\s+assets|cover\s+worldwide|assets\s+(?:i\s+own\s+)?worldwide|assets\s+.*?worldwide|cover\s+assets.*?worldwide)/i.test(
         rawText,
       );
     if (activeField === "coversWorldwideAssets") {
@@ -478,7 +526,11 @@ export class MockLLMClient implements LLMClient {
           confidence: "AMBIGUOUS",
         });
       } else {
-        const isNegative = /^(?:no|false|nope|n\b|don't|not\b)/i.test(rawText);
+        const isNegative =
+          /^(?:no|false|nope|n\b|don't|not\b)/i.test(rawText) ||
+          /(?:not\s+want.*outside|do\s+not\s+want.*outside|don't\s+want.*outside|only.*in\s+(?:india|uk|my\s+country))/i.test(
+            rawText,
+          );
         updates.push({
           field: "coversWorldwideAssets",
           value: !isNegative,
@@ -491,7 +543,7 @@ export class MockLLMClient implements LLMClient {
       input.currentState.coversWorldwideAssets.status === "UNKNOWN"
     ) {
       const isNegative =
-        /(?:not\s+worldwide|no\s+worldwide|don't\s+cover\s+worldwide)/i.test(
+        /(?:not\s+worldwide|no\s+worldwide|don't\s+cover\s+worldwide|not\s+want.*outside|do\s+not\s+want.*outside)/i.test(
           rawText,
         );
       updates.push({
@@ -503,7 +555,12 @@ export class MockLLMClient implements LLMClient {
     }
 
     // --- 6. Specific Gifts Extraction ---
-    if (activeField === "specificGifts") {
+    const isGiftPattern =
+      /(?:i\s+want\s+(?:my\s+)?|leave\s+(?:my\s+)?|gift\s+(?:my\s+)?|give\s+(?:my\s+)?)[^.]+?\s+to\s+[A-Za-z]/i.test(
+        rawText,
+      );
+
+    if (activeField === "specificGifts" || isGiftPattern) {
       const value =
         rawText.length > 0 ? [rawText] : ["Vintage watch to James Dent"];
       updates.push({
@@ -515,7 +572,7 @@ export class MockLLMClient implements LLMClient {
     }
 
     // --- 7. Additional Wishes Extraction ---
-    if (activeField === "additionalWishes") {
+    if (activeField === "additionalWishes" && !isGiftPattern) {
       const value = rawText.length > 0 ? rawText : "No further wishes";
       updates.push({
         field: "additionalWishes",
@@ -656,6 +713,10 @@ export function isRefusal(text: string): boolean {
     /^do not want to provide(?:.*)?$/,
     /^dont want to say(?:.*)?$/,
     /^do not want to say(?:.*)?$/,
+    /^dont want to(?:.*)?$/,
+    /^do not want to(?:.*)?$/,
+    /^i dont want to(?:.*)?$/,
+    /^i do not want to(?:.*)?$/,
     /^private$/,
     /^confidential$/,
     /^no comment$/,
@@ -837,7 +898,7 @@ function parseChildrenFromText(
 
   let cleaned = nameSource
     .replace(
-      /^(?:yes[,\s]*)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)?(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
+      /^(?:yes[,\s]*)?(?:their\s+names\s+are\s+|names\s+are\s+)?(?:i\s+have\s+)?(?:\d+|one|two|three|four|five)?\s*(?:children|kids)?(?:[,\s]+that\s+are|[,\s]+namely|:|\s+are|[,\s]+)?/i,
       "",
     )
     .trim();
