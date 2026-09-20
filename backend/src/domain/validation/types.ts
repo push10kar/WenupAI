@@ -1,4 +1,4 @@
-import { CandidateOperation, CandidateUpdate } from "../candidate";
+import { CandidateOperation } from "../candidate";
 
 /**
  * Validation stage taxonomy distinguishing which pipeline stage failed.

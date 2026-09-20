@@ -28,6 +28,9 @@ vi.mock("../src/api", () => {
       getSession: vi.fn(),
       sendMessage: vi.fn(),
     },
+    configApi: {
+      getLLMProvider: vi.fn(async () => "mock"),
+    },
   };
 });
 
@@ -267,6 +270,30 @@ describe("Two-Page Flow & Workspace Card", () => {
           "session-1",
           "123 Maple Street, London",
         );
+      });
+    });
+
+    it("shows a lime LLM provider badge on the conversation card", async () => {
+      vi.mocked(sessionApi.createSession).mockResolvedValue(
+        createInitialSession(),
+      );
+
+      render(<App />);
+
+      // Enter workspace
+      fireEvent.click(screen.getByText("Enter Workspace"));
+      await waitFor(() => {
+        expect(screen.getByTestId("workspace-card")).toBeInTheDocument();
+      });
+
+      // The active provider (mocked as "mock") is displayed in the badge
+      const badge = screen.getByTestId("llm-provider-badge");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent("MockLLM");
+      expect(badge).toHaveClass("bg-[#eaff57]");
+      expect(badge).toHaveStyle({ border: "1px dashed rgba(78, 31, 190, 0.5)" });
+      expect(badge).toHaveStyle({
+        outline: "1px dashed rgba(78, 31, 190, 0.8)",
       });
     });
   });

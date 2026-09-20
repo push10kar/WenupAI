@@ -25,17 +25,17 @@ function getProviderErrorMessage(error: unknown): string {
 
   switch (error.code) {
     case "CONFIGURATION_ERROR":
-      return "Gemini is not configured correctly. Check GEMINI_API_KEY and LLM_PROVIDER.";
+      return "The configured LLM provider is not set up correctly. Check the provider API key and LLM_PROVIDER settings.";
     case "PROVIDER_AUTH_ERROR":
-      return "Gemini authentication failed. Check that your API key is valid and has Gemini API access.";
+      return "The LLM provider rejected the API key. Check that your key is valid and has access to the configured model.";
     case "PROVIDER_RATE_LIMIT":
-      return "Gemini rate limit reached. Check your quota or try again later.";
+      return "The LLM provider rate limit or quota was reached. Try again later or enable ENABLE_LLM_FALLBACK.";
     case "PROVIDER_ERROR":
-      return "Gemini rejected the request. Check that GEMINI_MODEL is supported for your API key.";
+      return "The LLM provider rejected the request. Check that the configured model is supported for your API key.";
     case "PROVIDER_TIMEOUT":
-      return "Gemini took too long to respond. Try again or increase LLM_TIMEOUT_MS.";
+      return "The LLM provider took too long to respond. Try again or increase LLM_TIMEOUT_MS.";
     case "MALFORMED_OUTPUT":
-      return "Gemini returned an unexpected response. Try again.";
+      return "The LLM provider returned an unexpected response. Try again.";
     default:
       return "The AI service is temporarily unavailable. Please try again.";
   }

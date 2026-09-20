@@ -120,6 +120,31 @@ describe("Multi-Fact Children Intake & Reliability Bug Regression", () => {
         );
       }
     });
+
+    it("accepts a pronoun-based child name and skips the redundant follow-up children question", async () => {
+      const state = createBaseStateWithPriorFieldsConfirmed();
+      const mockLLM = new MockLLMClient();
+      const service = new InterviewService({ llmClient: mockLLM });
+
+      const result = await service.processMessage({
+        currentState: state,
+        conversation: [],
+        userMessage: "yes, his name is john",
+      });
+
+      expect(result.status).toBe("QUESTION");
+      if (result.status === "QUESTION") {
+        expect(result.state.hasChildren.status).toBe("CONFIRMED");
+        expect(result.state.hasChildren.value).toBe(true);
+        expect(result.state.children).toEqual([
+          { value: "John", status: "CONFIRMED" },
+        ]);
+        expect(result.question.id).toBe("executor.name");
+        expect(result.question.prompt).toBe(
+          "What is the full name of your appointed executor?",
+        );
+      }
+    });
   });
 
   describe("Test 3 — Names without relationships", () => {

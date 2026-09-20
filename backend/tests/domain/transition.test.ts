@@ -6,7 +6,6 @@ import {
   createUnconfirmedField,
   createConflictedField,
   isPersonalWishesState,
-  PersonalWishesState,
   ValidatedCandidateUpdate,
 } from "../../src/domain";
 

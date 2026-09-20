@@ -86,7 +86,7 @@ describe("Domain Foundation — PersonalWishesState", () => {
       const intermediateState: PersonalWishesState = {
         fullName: createConfirmedField("John Arthur Smith"),
         homeAddress: createUnconfirmedField("Near Baker Street, London"),
-        coversWorldwideAssets: createConflictedField(null),
+        coversWorldwideAssets: createConflictedField<boolean>(null),
         hasChildren: createConfirmedField(false),
         children: [],
         executor: {

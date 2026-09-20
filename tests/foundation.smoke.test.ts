@@ -22,6 +22,6 @@ describe("System Foundation Smoke Test", () => {
 
   it("verifies default configuration allows local operation without external API keys", () => {
     expect(config.port).toBeDefined();
-    expect(["mock", "gemini"]).toContain(config.llmProvider);
+    expect(["mock", "gemini", "openrouter"]).toContain(config.llmProvider);
   });
 });

@@ -2,7 +2,7 @@
 
 A web app that interviews users through a conversational UI to collect their personal wishes (name, address, executor, children, gifts, etc.) and automatically generates a draft Personal Wishes Document.
 
-Built with **React + Vite** on the frontend and **Express + TypeScript** on the backend. Uses **Google Gemini** as the LLM provider, with an automatic fallback to a mock LLM when the free-tier quota runs out.
+Built with **React + Vite** on the frontend and a **Fastify + TypeScript** backend. Uses **OpenRouter** (free-tier models) as the LLM provider by default, with **Gemini** and a deterministic **MockLLM** available as alternatives.
 
 ## How It Works
 
@@ -18,15 +18,15 @@ Built with **React + Vite** on the frontend and **Express + TypeScript** on the 
 | Layer    | Tech                                             |
 | -------- | ------------------------------------------------ |
 | Frontend | React, Vite, TypeScript, Tailwind CSS, shadcn/ui |
-| Backend  | Express, TypeScript, Zod, SQLite                 |
-| LLM      | Google Gemini (with MockLLM fallback)            |
+| Backend  | Fastify, TypeScript, Zod, SQLite                 |
+| LLM      | OpenRouter (free-tier) — Gemini & MockLLM options |
 | Testing  | Vitest                                           |
 
 ## Prerequisites
 
 - **Node.js** v20+ (tested on v22)
 - **npm** v10+
-- A **Gemini API key** (free tier works — get one at [aistudio.google.com](https://aistudio.google.com))
+- A **provider key** — either an [OpenRouter API key](https://openrouter.ai/keys) (default) or a [Gemini API key](https://aistudio.google.com) — or run with the `mock` provider and no key at all
 
 ## Setup
 
@@ -56,22 +56,27 @@ Built with **React + Vite** on the frontend and **Express + TypeScript** on the 
    PORT=3000
    NODE_ENV=development
 
-   # LLM — set to "gemini" to use Gemini, or "mock" to skip the API entirely
-   LLM_PROVIDER=gemini
-   LLM_TIMEOUT_MS=15000
+   # LLM — "openrouter" (default) | "gemini" | "mock" (no key required)
+   LLM_PROVIDER=openrouter
+   LLM_TIMEOUT_MS=60000
 
-   # Gemini
-   GEMINI_API_KEY=your_api_key_here
-   GEMINI_MODEL=gemini-2.0-flash
+   # OpenRouter (OpenAI-compatible chat completions; free-tier models supported)
+   OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+   OPENROUTER_API_KEY=your_api_key_here
+   OPENROUTER_MODEL=openrouter/free
 
-   # Auto-fallback to MockLLM when Gemini quota is exhausted (true/false)
-   ENABLE_LLM_FALLBACK=true
+   # Gemini (alternative provider)
+   GEMINI_API_KEY=
+   GEMINI_MODEL=gemini-1.5-flash
+
+   # Optionally point at a local OpenAI-compatible gateway (e.g. OmniRoute) instead:
+   # OPENROUTER_BASE_URL=http://localhost:20128/v1
 
    # Database
    DATABASE_PATH=./dev.sqlite
    ```
 
-   > **Tip:** If you don't have a Gemini key yet, set `LLM_PROVIDER=mock` and the app will work with deterministic mock responses — no API key needed.
+   > **Tip:** If you don't have a provider key yet, set `LLM_PROVIDER=mock` and the app will work with deterministic mock responses — no API key needed.
 
 ## Running the App
 
@@ -94,8 +99,9 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 npm test
 
 # Or run them individually
-npm --prefix backend run test     # 348 tests
-npm --prefix frontend run test    # 23 tests
+npm --prefix backend run test     # 380 tests
+npm --prefix frontend run test    # 24 tests
+npx vitest run                    # root foundation smoke tests
 ```
 
 ## Building for Production
@@ -120,14 +126,14 @@ WenupAI/
 │   ├── src/
 │   │   ├── domain/           # State machine, validation, conflict detection
 │   │   ├── application/      # Interview service, session management
-│   │   └── infrastructure/   # LLM clients (Gemini, Mock, Fallback), DB, routes
-│   └── tests/                # 348 tests (unit, integration, e2e scenarios)
+│   │   └── infrastructure/   # LLM clients (OpenRouter, Gemini, Mock, Fallback), DB, routes
+│   └── tests/                # 380 tests (unit, integration, e2e scenarios)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/       # UI components (chat, previews, editor)
 │   │   ├── hooks/            # useInterview hook
 │   │   └── api/              # Backend API client
-│   └── tests/                # 23 tests
+│   └── tests/                # 24 tests
 ├── .env.example              # Environment template
 └── ARCHITECTURE.md           # Detailed architecture doc
 ```
@@ -138,23 +144,33 @@ WenupAI/
 | --------------------- | ------------------------------------------ | ------------------ |
 | `PORT`                | Backend server port                        | `3000`             |
 | `NODE_ENV`            | `development` / `production` / `test`      | `development`      |
-| `LLM_PROVIDER`        | `gemini` or `mock`                         | `mock`             |
+| `LLM_PROVIDER`        | `openrouter` or `gemini` or `mock`         | `mock`             |
+| `OPENROUTER_BASE_URL` | OpenAI-compatible base URL (or local gateway like OmniRoute) | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_API_KEY`  | Your OpenRouter / gateway API key          | —                  |
+| `OPENROUTER_MODEL`    | Model to use (free tier: `openrouter/free`) | `openrouter/free` |
 | `GEMINI_API_KEY`      | Your Gemini API key                        | —                  |
-| `GEMINI_MODEL`        | Gemini model to use                        | `gemini-2.0-flash` |
-| `LLM_TIMEOUT_MS`      | Request timeout for LLM calls (ms)         | `15000`            |
-| `ENABLE_LLM_FALLBACK` | Auto-switch to MockLLM on quota exhaustion | `true`             |
+| `GEMINI_MODEL`        | Gemini model to use                        | `gemini-1.5-flash` |
+| `LLM_TIMEOUT_MS`      | Request timeout for LLM calls (ms)         | `60000`            |
+| `ENABLE_LLM_FALLBACK` | Auto-switch to MockLLM on provider failure | `true` (dev)       |
 | `DATABASE_PATH`       | Path to SQLite database file               | `./dev.sqlite`     |
 
 ## About the Fallback System
 
-When using the Gemini free tier, the API quota can run out pretty fast. Instead of crashing, the app automatically detects quota errors (HTTP 429) and switches to MockLLM so the interview can continue. When the quota resets, it goes right back to using Gemini — no restart needed.
+An optional `ENABLE_LLM_FALLBACK` flag lets the app switch to MockLLM if the primary provider fails
+(timeout, outage, quota). When enabled, failed requests are converted into deterministic mock
+responses so the interview can continue without errors. When disabled, a provider failure surfaces as
+a clear, safe error with **no state mutation**.
 
-The UI shows a small note when this happens so the user knows.
+> **Note for the Wenup team:** in this submission, `.env` has `ENABLE_LLM_FALLBACK=false`, so the
+> app never substitutes fabricated mock data if the LLM provider fails — it fails safely instead.
+
+MockLLM is deterministic: zero network calls, zero randomness, canned responses designed for tests
+and local development.
 
 ## What Could Be Better
 
 - **Streaming responses** — right now it waits for the full LLM response before showing anything. Streaming would feel faster.
-- **Auth** — sessions are just UUIDs in localStorage. Real auth would let users resume across devices.
+- **Auth** — sessions are UUIDs and aren't yet restored across page reloads. Real auth would let users resume across devices.
 - **Better database** — SQLite works fine for dev but Postgres would be needed for production.
 - **PDF export** — people probably want to print or share their document.
 - **Retry with backoff** — the fallback handles quota errors, but a proper retry strategy with exponential backoff would be more robust.

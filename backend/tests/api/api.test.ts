@@ -92,7 +92,7 @@ describe("Phase 11: Fastify API Layer", () => {
     it("creates a session with a custom valid initial state", async () => {
       const customState: PersonalWishesState = {
         ...createInitialState(),
-        fullName: createConfirmedField("Ford Prefect", "user"),
+        fullName: createConfirmedField("Ford Prefect"),
       };
 
       const res = await app.inject({
@@ -439,7 +439,7 @@ describe("Phase 11: Fastify API Layer", () => {
       // Session with already confirmed full name
       const session = await repo.createSession({
         ...createInitialState(),
-        fullName: createConfirmedField("Arthur Dent", "user"),
+        fullName: createConfirmedField("Arthur Dent"),
       });
 
       const res = await customApp.inject({
@@ -595,6 +595,24 @@ describe("Phase 11: Fastify API Layer", () => {
       const body = res.json();
       expect(body.session.state.fullName.value).toBe("Arthur Dent");
       expect(body.session.state.fullName.status).toBe("CONFIRMED");
+    });
+
+    it("rejects oversized message payloads with 400 and no state mutation", async () => {
+      const session = await repo.createSession();
+      const oversizedContent = "x".repeat(100001);
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/sessions/${session.id}/messages`,
+        payload: {
+          content: oversizedContent,
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.error.code).toBe("BAD_REQUEST");
+      expect(body.session).toBeUndefined();
     });
 
     it("safely rejects malformed URL parameters with 400 Bad Request", async () => {

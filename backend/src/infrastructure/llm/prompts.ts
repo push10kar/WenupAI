@@ -1,3 +1,4 @@
+import { EXTRACTION_JSON_SCHEMA } from "./extractionSchema";
 import { LLMExtractionInput, ResponseGenerationInput } from "./types";
 
 /**
@@ -47,24 +48,38 @@ CRITICAL RULES:
    - For example, if user says "My name is Pushkar Gavade and I have two children" or "pushkar gavade, i have 2 children", the "fullName" value MUST be "Pushkar Gavade", NOT "pushkar gavade, i have 2 children" or "My name is Pushkar Gavade and I have two children".
    - Unrelated clauses must be excluded or extracted into their own separate operations.
    - Clean and properly capitalize entity names (e.g. "Pushkar Gavade").
-10. If the user message is completely unrelated chit-chat or greetings without any domain content, return {"updates": []}.
+10. GREETINGS & CHIT-CHAT:
+   - If the user message is a greeting, conversational opener, or filler with no domain content (e.g. "Hi", "Hello", "Hey", "Good morning", "How are you", "Ok", "Sure", "Alright", "Let's start"), return {"updates": []}.
+   - NEVER extract a greeting word (hi, hello, hey, ok, sure, etc.) as a person's full name.
+   - A valid fullName does NOT require multiple words. A single non-greeting, non-stop-word word the user gives as their name (e.g. "Pushkar" in answer to "What is your full legal name?") is a CLEAR fullName — extract it with confidence "CLEAR".
+   - ONLY mark a name "AMBIGUOUS" when the statement is genuinely unclear (e.g. a nickname offered with no indication it is the legal name, or phrasing like "My brother calls me X"). Do not treat a short or single-word answer as ambiguous by itself.
 11. Return ONLY raw JSON without markdown formatting, code fences, or accompanying text.`;
 
 /**
+ * Full extraction system prompt that injects the Zod-rendered JSON Schema
+ * (EXTRACTION_JSON_SCHEMA) so generic providers see the exact expected output
+ * structure. Combined with defensive Zod parsing on the raw response, this is
+ * the structured-JSON enforcement layer for providers without native schemas.
+ */
+export function buildExtractionSystemPrompt(): string {
+  return `${EXTRACTION_SYSTEM_PROMPT}
+
+TARGET JSON SCHEMA (your output MUST satisfy this schema exactly):
+${EXTRACTION_JSON_SCHEMA}`;
+}
+
+/**
  * Builds the user prompt payload for candidate extraction.
+ *
+ * The canonical state is the only historical context sent to the provider.
+ * Conversation history is intentionally excluded so prior free-form text
+ * cannot become an untrusted second source of truth.
  */
 export function buildExtractionPrompt(input: LLMExtractionInput): string {
   const stateSummary = JSON.stringify(input.currentState, null, 2);
-  const recentHistory = input.conversation
-    .slice(-6)
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-    .join("\n");
 
   return `CURRENT CONFIRMED DOMAIN STATE:
 ${stateSummary}
-
-RECENT CONVERSATION:
-${recentHistory || "(No prior messages)"}
 
 LATEST USER MESSAGE:
 "${input.latestUserMessage}"
@@ -80,21 +95,20 @@ Your role is to ask the next required intake question in a natural, conversation
 
 RULES:
 1. Acknowledge the user's message briefly and politely if appropriate.
-2. Ask the provided next question clearly.
-3. Keep your response concise (1-3 sentences).
-4. Do NOT give legal advice or make legal claims.`;
+2. Ask ONLY the provided "NEXT REQUIRED INTAKE QUESTION". Do not ask about any other topic.
+3. NEVER infer, claim, or restate facts about the user that they have not confirmed. In particular, do NOT mention children, addresses, executors, or any subject unless the user explicitly raised it in their latest message.
+4. If the user's latest message does not answer the next question (e.g. they refuse, say "no", or talk about something unrelated), acknowledge briefly and gently re-ask the SAME next question. Never invent a meaning for a "no" or unrelated reply.
+5. Keep your response concise (1-3 sentences).
+6. Do NOT give legal advice or make legal claims.`;
 
 /**
  * Builds the prompt for natural language assistant response generation.
  */
 export function buildResponsePrompt(input: ResponseGenerationInput): string {
-  const recentHistory = input.conversation
-    .slice(-4)
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-    .join("\n");
+  const stateSummary = JSON.stringify(input.currentState, null, 2);
 
-  return `CONVERSATION SO FAR:
-${recentHistory || "(Conversation just started)"}
+  return `CURRENT STRUCTURED DOMAIN STATE:
+${stateSummary}
 
 USER'S LATEST MESSAGE:
 "${input.latestUserMessage || "(Session initialized)"}"

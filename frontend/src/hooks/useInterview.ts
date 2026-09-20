@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Session, ApiError, Message } from "../types";
 import { sessionApi, ApiClientError } from "../api";
 
@@ -68,14 +68,35 @@ export function useInterview(): UseInterviewReturn {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<ApiError | null>(null);
 
+  // Guards against stale async work: every mutating operation bumps the counter,
+  // so responses from superseded operations are ignored. `activeAbortRef` lets a
+  // new operation cancel an in-flight one (e.g. session creation) at the network
+  // layer instead of merely discarding its result.
+  const operationIdRef = useRef(0);
+  const activeAbortRef = useRef<AbortController | null>(null);
+
   const startNewSession = useCallback(async () => {
+    activeAbortRef.current?.abort();
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
+    const operationId = ++operationIdRef.current;
+
     setIsLoading(true);
     setError(null);
     setInput("");
     try {
-      const newSession = await sessionApi.createSession();
+      const newSession = await sessionApi.createSession(
+        undefined,
+        controller.signal,
+      );
+      if (operationId !== operationIdRef.current) {
+        return;
+      }
       setSession(newSession);
     } catch (err) {
+      if (operationId !== operationIdRef.current) {
+        return;
+      }
       if (err instanceof ApiClientError) {
         setError({ code: err.code, message: err.message });
       } else {
@@ -86,7 +107,9 @@ export function useInterview(): UseInterviewReturn {
         });
       }
     } finally {
-      setIsLoading(false);
+      if (operationId === operationIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 

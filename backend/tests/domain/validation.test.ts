@@ -6,7 +6,6 @@ import {
   validateCandidateSemantics,
   createInitialState,
   createConfirmedField,
-  PersonalWishesState,
 } from "../../src/domain";
 
 describe("Phase 3 — Validation Pipeline", () => {
@@ -14,30 +13,30 @@ describe("Phase 3 — Validation Pipeline", () => {
     it("handles null and undefined safely without throwing", () => {
       const nullResult = parseCandidate(null);
       expect(nullResult.success).toBe(false);
-      expect(nullResult.error.stage).toBe("PARSE");
-      expect(nullResult.error.code).toBe("MALFORMED_JSON");
+      expect(nullResult.error!.stage).toBe("PARSE");
+      expect(nullResult.error!.code).toBe("MALFORMED_JSON");
 
       const undefinedResult = parseCandidate(undefined);
       expect(undefinedResult.success).toBe(false);
-      expect(undefinedResult.error.stage).toBe("PARSE");
-      expect(undefinedResult.error.code).toBe("MALFORMED_JSON");
+      expect(undefinedResult.error!.stage).toBe("PARSE");
+      expect(undefinedResult.error!.code).toBe("MALFORMED_JSON");
     });
 
     it("handles primitive values safely", () => {
       const numResult = parseCandidate(12345);
       expect(numResult.success).toBe(false);
-      expect(numResult.error.stage).toBe("PARSE");
+      expect(numResult.error!.stage).toBe("PARSE");
 
       const boolResult = parseCandidate(true);
       expect(boolResult.success).toBe(false);
-      expect(boolResult.error.stage).toBe("PARSE");
+      expect(boolResult.error!.stage).toBe("PARSE");
     });
 
     it("handles array values safely by rejecting them as invalid candidate containers", () => {
       const arrayResult = parseCandidate([]);
       expect(arrayResult.success).toBe(false);
-      expect(arrayResult.error.stage).toBe("PARSE");
-      expect(arrayResult.error.code).toBe("MALFORMED_JSON");
+      expect(arrayResult.error!.stage).toBe("PARSE");
+      expect(arrayResult.error!.code).toBe("MALFORMED_JSON");
     });
 
     it("parses valid JSON string candidate input", () => {
@@ -60,8 +59,8 @@ describe("Phase 3 — Validation Pipeline", () => {
       const badJson = '{"operations": [ invalid json';
       const result = parseCandidate(badJson);
       expect(result.success).toBe(false);
-      expect(result.error.stage).toBe("PARSE");
-      expect(result.error.code).toBe("MALFORMED_JSON");
+      expect(result.error!.stage).toBe("PARSE");
+      expect(result.error!.code).toBe("MALFORMED_JSON");
     });
 
     it("accepts already-parsed candidate objects", () => {
@@ -122,12 +121,11 @@ describe("Phase 3 — Validation Pipeline", () => {
       }
     });
 
-    it("rejects empty operations array", () => {
+    it("accepts empty operations array as valid no-op candidate", () => {
       const result = validateCandidateSchema({ operations: [] });
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.errors[0].stage).toBe("SCHEMA");
-        expect(result.errors[0].code).toBe("INVALID_RESPONSE_SCHEMA");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.candidate.operations).toEqual([]);
       }
     });
 

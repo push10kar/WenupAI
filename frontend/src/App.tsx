@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useInterview } from "./hooks";
+import { configApi } from "./api";
 import {
   ErrorBanner,
   LandingView,
@@ -49,6 +50,13 @@ interface AppProps {
   initialShowOverview?: boolean;
 }
 
+/** User-facing labels for the LLM provider badge on the conversation card. */
+const LLM_PROVIDER_LABELS: Record<string, string> = {
+  mock: "MockLLM",
+  gemini: "Gemini",
+  openrouter: "OpenRouter Free",
+};
+
 export const App: React.FC<AppProps> = ({ initialShowOverview }) => {
   const {
     session,
@@ -86,6 +94,48 @@ export const App: React.FC<AppProps> = ({ initialShowOverview }) => {
 
   // Dark/light mode state for the conversation workspace (defaults to dark mode to match Screenshot 1)
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+
+  // Active LLM provider identifier used for the conversation card badge.
+  // Refreshed continuously (and on focus/visibility change) so the badge reflects
+  // the provider actually serving requests in real time — including switches made
+  // by the resilient fallback layer on the backend.
+  const [llmProvider, setLlmProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refresh = () => {
+      configApi
+        .getLLMProvider()
+        .then((provider) => {
+          if (!cancelled) {
+            setLlmProvider(provider);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLlmProvider(null);
+          }
+        });
+    };
+
+    refresh();
+    const intervalId = setInterval(refresh, 5000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   // Auto-scroll ref for conversation messages
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -280,6 +330,26 @@ export const App: React.FC<AppProps> = ({ initialShowOverview }) => {
                 style={{ border: "6px solid #4E1FBE", borderRadius: "16px" }}
                 data-testid="workspace-card"
               >
+                {/* LLM Provider Badge — styled like the buttons above the card, but compact */}
+                {llmProvider && (
+                  <div
+                    style={{
+                      padding: "6px 12px",
+                      border: "1px dashed rgba(78, 31, 190, 0.5)",
+                      outline: "1px dashed rgba(78, 31, 190, 0.8)",
+                      outlineOffset: "3px",
+                      borderRadius: "12px",
+                      boxSizing: "border-box",
+                    }}
+                    className="absolute top-3 right-3 md:top-4 md:right-4 z-10 inline-flex items-center gap-1.5 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm cursor-pointer select-none bg-[#eaff57] hover:bg-[#ddf83b] text-[#240067]"
+                    data-testid="llm-provider-badge"
+                    title={`LLM provider: ${LLM_PROVIDER_LABELS[llmProvider] ?? llmProvider}`}
+                  >
+                    <span className="size-1.5 rounded-full bg-[#240067]/80" />
+                    {LLM_PROVIDER_LABELS[llmProvider] ?? llmProvider}
+                  </div>
+                )}
+
                 {/* Conversation Messages Stream */}
                 <div className="flex-1 overflow-y-auto px-4 md:px-8 flex flex-col items-center">
                   {/* Top margin/padding spacer so messages never stick to the top purple border */}
@@ -412,7 +482,7 @@ export const App: React.FC<AppProps> = ({ initialShowOverview }) => {
               <p className="w-full flex items-center justify-center gap-1.5 text-center text-xs text-[#797482] font-medium tracking-wide -mt-2">
                 <Info className="size-3.5 shrink-0 text-[#4E1FBE]" />
                 <span>
-                  Note: When the Gemini free-tier quota is reached, the
+                  Note: When the LLM provider's free-tier quota is reached, the
                   assistant automatically switches to MockLLM so your interview
                   continues uninterrupted.
                 </span>

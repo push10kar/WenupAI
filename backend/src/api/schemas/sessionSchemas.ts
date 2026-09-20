@@ -25,7 +25,11 @@ export type SessionIdParam = z.infer<typeof sessionIdParamSchema>;
  * Schema for POST /api/sessions/:id/messages request payload matching ARCHITECTURE.md Section 9.2.
  */
 export const sendMessageBodySchema = z.object({
-  content: z.string().trim().min(1, "Message content cannot be empty"),
+  content: z
+    .string()
+    .trim()
+    .min(1, "Message content cannot be empty")
+    .max(100000, "Message content exceeds the maximum length of 100,000 characters"),
 });
 
 export type SendMessageBody = z.infer<typeof sendMessageBodySchema>;

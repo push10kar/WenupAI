@@ -58,11 +58,23 @@ describe("Unsolicited Multi-Fact Intake & Reliability Regression", () => {
       const turn2 = await service.processMessage({
         currentState: turn1.state,
         conversation: [
-          { role: "assistant", content: "What is your full legal name?" },
-          { role: "user", content: "Pushkar Gavade, I have 2 children." },
           {
+            id: "a1",
+            role: "assistant",
+            content: "What is your full legal name?",
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+          {
+            id: "u1",
+            role: "user",
+            content: "Pushkar Gavade, I have 2 children.",
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+          {
+            id: "a2",
             role: "assistant",
             content: "What is your current home address?",
+            createdAt: "2024-01-01T00:00:00.000Z",
           },
         ],
         userMessage: "42 Country Lane, Cottington",
@@ -78,12 +90,24 @@ describe("Unsolicited Multi-Fact Intake & Reliability Regression", () => {
       const turn3 = await service.processMessage({
         currentState: turn2.state,
         conversation: [
-          { role: "assistant", content: "What is your current home address?" },
-          { role: "user", content: "42 Country Lane, Cottington" },
           {
+            id: "a1",
+            role: "assistant",
+            content: "What is your current home address?",
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+          {
+            id: "u1",
+            role: "user",
+            content: "42 Country Lane, Cottington",
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+          {
+            id: "a2",
             role: "assistant",
             content:
               "Do you wish for this document to cover your worldwide assets?",
+            createdAt: "2024-01-01T00:00:00.000Z",
           },
         ],
         userMessage: "no",
@@ -354,7 +378,12 @@ describe("Unsolicited Multi-Fact Intake & Reliability Regression", () => {
       const result = await service.processMessage({
         currentState: state,
         conversation: [
-          { role: "assistant", content: "What is your current home address?" },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "What is your current home address?",
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
         ],
         userMessage: "I don't know.",
       });

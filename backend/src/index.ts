@@ -1,3 +1,4 @@
+import "./infrastructure/db/sqliteWarning";
 import { createApp } from "./api";
 import { config, validateConfig } from "./config";
 

@@ -163,3 +163,11 @@ Also, early on the AI suggested keeping conversation history as the state and "r
 - The extraction prompt has gotten long with all the edge case rules. Ideally I'd split "extraction rules" from "field definitions" more cleanly.
 - I didn't build streaming. The response generation call blocks until done. Fine for a demo but not for real use.
 - No retry logic on transient LLM errors (rate limit, 5xx). Easy to add, just ran out of time.
+
+## What Could Be Better
+
+- **Streaming responses** — right now it waits for the full LLM response before showing anything. Streaming would feel faster.
+- **Auth** — sessions are just UUIDs in localStorage. Real auth would let users resume across devices.
+- **Better database** — SQLite works fine for dev but Postgres would be needed for production.
+- **PDF export** — people probably want to print or share their document.
+- **Retry with backoff** — the fallback handles quota errors, but a proper retry strategy with exponential backoff would be more robust.

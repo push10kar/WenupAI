@@ -22,6 +22,9 @@ vi.mock("../src/api", () => {
       getSession: vi.fn(),
       sendMessage: vi.fn(),
     },
+    configApi: {
+      getLLMProvider: vi.fn(async () => "mock"),
+    },
   };
 });
 

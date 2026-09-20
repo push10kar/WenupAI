@@ -207,14 +207,9 @@ export const candidateUpdateSchema = z
       });
       return;
     }
-
-    if (ops.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "CandidateUpdate operations array cannot be empty",
-        path: ["operations"],
-      });
-    }
+    // Empty updates array is intentionally allowed:
+    // It signals "no domain facts in this message" (e.g. greetings, chit-chat).
+    // The service layer handles this by re-asking the current pending question.
   })
   .transform((data): CandidateUpdate => {
     const ops = data.operations ?? data.updates ?? [];

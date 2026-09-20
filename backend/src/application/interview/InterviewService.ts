@@ -228,6 +228,43 @@ export class InterviewService {
       };
     }
 
+    // Stage 2a: Empty candidate — no domain facts extracted (greeting, chit-chat, etc.)
+    // Skip state transition entirely; re-ask the current pending question.
+    if (validationResult.candidate.operations.length === 0) {
+      const questionResult = selectNextQuestion(currentState);
+      const document = generateDocument(currentState);
+
+      if (questionResult.status === "COMPLETE") {
+        const assistantMessage = await this.safeGenerateResponse({
+          currentState,
+          conversation,
+          latestUserMessage: userMessage,
+          nextQuestionPrompt:
+            "All required information has been collected. Your draft personal wishes document is ready.",
+        });
+        return {
+          status: "COMPLETE",
+          state: currentState,
+          assistantMessage,
+          document,
+        };
+      }
+
+      const assistantMessage = await this.safeGenerateResponse({
+        currentState,
+        conversation,
+        latestUserMessage: userMessage,
+        nextQuestionPrompt: questionResult.question.prompt,
+      });
+      return {
+        status: "QUESTION",
+        state: currentState,
+        question: questionResult.question,
+        assistantMessage,
+        document,
+      };
+    }
+
     // Stage 3: Deterministic Conflict Detection (Phase 5)
     const conflictResult = detectConflicts(
       currentState,

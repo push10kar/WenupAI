@@ -3,6 +3,8 @@ export * from "./errors";
 export * from "./LLMClient";
 export * from "./MockLLMClient";
 export * from "./prompts";
+export * from "./extractionSchema";
 export * from "./gemini/GeminiLLMClient";
+export * from "./openrouter/OpenRouterLLMClient";
 export * from "./createLLMClient";
 export * from "./FallbackLLMClient";

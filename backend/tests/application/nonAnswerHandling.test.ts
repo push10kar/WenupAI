@@ -7,8 +7,6 @@ import {
 } from "../../src/infrastructure/db";
 import { createInitialState } from "../../src/domain/state";
 import { generateDocument } from "../../src/domain/document";
-import { validateCandidate } from "../../src/domain/validation";
-import { selectNextQuestion } from "../../src/domain/questions";
 
 describe("Reliability: Non-Answer & Refusal Handling", () => {
   let mockLLM: MockLLMClient;
@@ -38,6 +36,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
     );
 
     expect(turn2.status).toBe("QUESTION");
+    if (turn2.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(turn2.state.homeAddress.status).toBe("NOT_PROVIDED");
     expect(turn2.state.homeAddress.value).toBeNull();
     expect(turn2.state.homeAddress.status).not.toBe("CONFIRMED");
@@ -62,6 +63,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
 
       const result = await service.processSessionMessage(sess.id, phrase);
       expect(result.status).toBe("QUESTION");
+      if (result.status !== "QUESTION") {
+        throw new Error("expected QUESTION");
+      }
       expect(result.state.homeAddress.status).toBe("NOT_PROVIDED");
       expect(result.state.homeAddress.value).toBeNull();
       expect(result.state.homeAddress.status).not.toBe("CONFIRMED");
@@ -84,6 +88,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
     );
 
     expect(result.status).toBe("QUESTION");
+    if (result.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(result.state.homeAddress.status).toBe("NOT_PROVIDED");
     expect(result.state.homeAddress.value).toBeNull();
     expect(result.state.homeAddress.status).not.toBe("CONFIRMED");
@@ -105,6 +112,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
     );
 
     expect(result.status).toBe("QUESTION");
+    if (result.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(result.state.homeAddress.status).toBe("REFUSED");
     expect(result.state.homeAddress.value).toBeNull();
     expect(result.state.homeAddress.status).not.toBe("CONFIRMED");
@@ -154,6 +164,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
     );
 
     expect(result.status).toBe("QUESTION");
+    if (result.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(result.state.homeAddress.status).toBe("CONFIRMED");
     expect(result.state.homeAddress.value).toBe(
       "123 Main Street, Pune, Maharashtra.",
@@ -257,6 +270,9 @@ describe("Reliability: Non-Answer & Refusal Handling", () => {
       "yes i have 2 children, the daughters name is sarah, the sons name is bob",
     );
     expect(turn4.status).toBe("QUESTION");
+    if (turn4.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(turn4.state.hasChildren.status).toBe("CONFIRMED");
     expect(turn4.state.hasChildren.value).toBe(true);
     expect(turn4.state.children).toEqual([

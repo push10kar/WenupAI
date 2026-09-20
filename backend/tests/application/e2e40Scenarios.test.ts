@@ -7,9 +7,7 @@ import {
 import { InterviewService } from "../../src/application/interview";
 import { MockLLMClient } from "../../src/infrastructure/llm";
 import {
-  createInitialState,
   createConfirmedField,
-  generateDocument,
 } from "../../src/domain";
 
 describe("Phase 12: Comprehensive 40-Scenario End-to-End Suite", () => {
@@ -245,9 +243,14 @@ describe("Phase 12: Comprehensive 40-Scenario End-to-End Suite", () => {
     session.state.hasChildren = createConfirmedField(false);
     await repo.saveTurn(
       session.id,
-      { id: "m1", role: "user", content: "setup" },
+      {
+        id: "m1",
+        role: "user",
+        content: "setup",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      },
       session.state,
-      null,
+      undefined,
       1,
     );
 
@@ -422,9 +425,14 @@ describe("Phase 12: Comprehensive 40-Scenario End-to-End Suite", () => {
     session.state.hasChildren = createConfirmedField(false);
     await repo.saveTurn(
       session.id,
-      { id: "m1", role: "user", content: "setup" },
+      {
+        id: "m1",
+        role: "user",
+        content: "setup",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      },
       session.state,
-      null,
+      undefined,
       1,
     );
 
@@ -1220,4 +1228,69 @@ describe("Phase 12: Comprehensive 40-Scenario End-to-End Suite", () => {
     expect(doc).toContain("Tipendra Gada");
     expect(doc).not.toContain("His name is tipendra gada");
   });
+
+  it("TEST 42 — Executor name with 'his name is' pronoun prefix is cleaned", async () => {
+    const session = await service.createSession();
+
+    // Fill required fields first
+    await service.processSessionMessage(
+      session.id,
+      "My name is Jethalal Gada.",
+    );
+    await service.processSessionMessage(
+      session.id,
+      "I live at Gokuldham Society, Mumbai.",
+    );
+    await service.processSessionMessage(session.id, "Yes, worldwide.");
+    await service.processSessionMessage(session.id, "I have one child.");
+    await service.processSessionMessage(session.id, "Tipendra Gada");
+
+    // The bug: user says "his name is Sundar Lal" for executor name
+    await service.processSessionMessage(
+      session.id,
+      "My executor is my brother-in-law",
+    );
+    await service.processSessionMessage(session.id, "his name is Sundar Lal");
+
+    const curr = (await service.getSession(session.id))!;
+
+    // Must NOT contain "his name is" prefix
+    expect(curr.state.executor.name.value).toBe("Sundar Lal");
+    expect(curr.state.executor.name.value).not.toMatch(/his name is/i);
+    expect(curr.state.executor.relationship.value).toBe("Brother-in-law");
+  });
+
+  it("TEST 43 — Greeting like 'Hi' does NOT get captured as fullName", async () => {
+    const session = await service.createSession();
+
+    // User says "Hi" when asked for full legal name
+    const turn1 = await service.processSessionMessage(session.id, "Hi");
+
+    expect(turn1.status).toBe("QUESTION");
+    if (turn1.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
+    const curr = (await service.getSession(session.id))!;
+
+    // Name must NOT be "Hi"
+    expect(curr.state.fullName.status).toBe("UNKNOWN");
+    expect(curr.state.fullName.value).toBeNull();
+
+    // Next question should still be fullName
+    expect(turn1.question?.field).toBe("fullName");
+    expect(turn1.assistantMessage).toBe(
+      "What is your full legal name?",
+    );
+
+    // User then provides their actual name
+    const turn2 = await service.processSessionMessage(
+      session.id,
+      "My name is Jethalal Gada.",
+    );
+    expect(turn2.status).toBe("QUESTION");
+    const curr2 = (await service.getSession(session.id))!;
+    expect(curr2.state.fullName.status).toBe("CONFIRMED");
+    expect(curr2.state.fullName.value).toBe("Jethalal Gada");
+  });
 });
+

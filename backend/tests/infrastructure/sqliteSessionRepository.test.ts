@@ -66,7 +66,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
     it("creates a session with custom valid initial state", async () => {
       const customState: PersonalWishesState = {
         ...createInitialState(),
-        fullName: createConfirmedField("Jane Doe", "test"),
+        fullName: createConfirmedField("Jane Doe"),
       };
 
       const session = await repo.createSession(customState);
@@ -199,7 +199,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
 
       const newState: PersonalWishesState = {
         ...session.state,
-        fullName: createConfirmedField("Arthur Dent", "user-input"),
+        fullName: createConfirmedField("Arthur Dent"),
       };
 
       await repo.updateState(session.id, newState, 1);
@@ -217,7 +217,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
 
       const newState: PersonalWishesState = {
         ...session.state,
-        fullName: createConfirmedField("Arthur Dent", "user-input"),
+        fullName: createConfirmedField("Arthur Dent"),
       };
 
       // Pass wrong expected version (e.g., 2 instead of 1)
@@ -267,7 +267,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
       };
       const updatedState: PersonalWishesState = {
         ...session.state,
-        fullName: createConfirmedField("Ford Prefect", "user-input"),
+        fullName: createConfirmedField("Ford Prefect"),
       };
 
       await repo.saveTurn(session.id, userMsg, updatedState, assistantMsg, 1);
@@ -293,7 +293,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
       };
       const updatedState: PersonalWishesState = {
         ...session.state,
-        fullName: createConfirmedField("Conflict Person", "user-input"),
+        fullName: createConfirmedField("Conflict Person"),
       };
 
       // Wrong expected version
@@ -437,7 +437,7 @@ describe("Phase 10: SQLite Persistence & Session Repository", () => {
       // Start with confirmed full name
       const customState: PersonalWishesState = {
         ...createInitialState(),
-        fullName: createConfirmedField("Arthur Dent", "test"),
+        fullName: createConfirmedField("Arthur Dent"),
       };
       const mockLLM = new MockLLMClient({
         extractionResponses: [

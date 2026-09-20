@@ -2,12 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   ALLOWED_FIELDS,
   UPDATE_INTENTS,
-  CONFIDENCE_LEVELS,
   validateCandidateUpdate,
   safeValidateCandidateUpdate,
   isCandidateUpdate,
-  validateCandidateOperation,
-  safeValidateCandidateOperation,
   isCandidateOperation,
   createInitialState,
   isPersonalWishesState,
@@ -225,14 +222,15 @@ describe("Phase 2 — CandidateUpdate Domain Contract", () => {
       }
     });
 
-    it("rejects empty operations array (meaningless candidate update)", () => {
-      expect(isCandidateUpdate({ operations: [] })).toBe(false);
-      expect(isCandidateUpdate({ updates: [] })).toBe(false);
+    it("accepts empty operations/updates array as a valid no-op candidate update", () => {
+      expect(isCandidateUpdate({ operations: [] })).toBe(true);
+      expect(isCandidateUpdate({ updates: [] })).toBe(true);
 
       const result = safeValidateCandidateUpdate({ operations: [] });
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain("cannot be empty");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.operations).toEqual([]);
+        expect(result.data.updates).toEqual([]);
       }
     });
 

@@ -8,7 +8,7 @@ import {
 import { createLLMClient } from "../../infrastructure/llm";
 import { config } from "../../config";
 import { errorHandler, notFoundHandler } from "../errors";
-import { healthRoutes, sessionRoutes } from "../routes";
+import { configRoutes, healthRoutes, sessionRoutes } from "../routes";
 import { AppDependencies } from "./types";
 
 /**
@@ -46,6 +46,7 @@ export function createApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.setNotFoundHandler(notFoundHandler);
 
   // Routes
+  app.register(configRoutes);
   app.register(healthRoutes);
   app.register(sessionRoutes, {
     interviewService,

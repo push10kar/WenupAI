@@ -472,7 +472,7 @@ describe("Phase 9: InterviewService Application Orchestrator", () => {
 
       const fakeClient: LLMClient = {
         async extractUpdates(
-          input: LLMExtractionInput,
+          _input: LLMExtractionInput,
         ): Promise<LLMExtractionResult> {
           extractCalls++;
           return {
@@ -487,7 +487,7 @@ describe("Phase 9: InterviewService Application Orchestrator", () => {
           };
         },
         async generateResponse(
-          input: ResponseGenerationInput,
+          _input: ResponseGenerationInput,
         ): Promise<string> {
           textCalls++;
           return "Custom fake prompt response";

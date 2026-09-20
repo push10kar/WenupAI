@@ -124,12 +124,12 @@ export class MockLLMClient implements LLMClient {
       latestUserMessage: input.latestUserMessage,
     });
 
-    if (this.extractionQueue.length > 0) {
-      const item = this.extractionQueue.shift()!;
-      if (item.kind === "error") {
-        throw item.error;
+    const queuedExtraction = this.extractionQueue.shift();
+    if (queuedExtraction) {
+      if (queuedExtraction.kind === "error") {
+        throw queuedExtraction.error;
       }
-      return structuredClone(item.data) as LLMExtractionResult;
+      return structuredClone(queuedExtraction.data) as LLMExtractionResult;
     }
 
     if (this.customExtractor) {
@@ -187,6 +187,12 @@ export class MockLLMClient implements LLMClient {
           ],
         };
       }
+
+      // Pure greeting / chit-chat with no domain content → no candidate updates.
+      // The service layer will re-ask the pending question.
+      if (isGreetingOrChitChat(rawText)) {
+        return { updates: [] };
+      }
     }
 
     const updates: CandidateOperation[] = [];
@@ -208,12 +214,14 @@ export class MockLLMClient implements LLMClient {
         !/(?:children|kids|executor|live\s+at|address\s+is)/i.test(rawText))
     ) {
       const value = extractNameFact(rawText);
-      updates.push({
-        field: "fullName",
-        value,
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
+      if (value.length > 0) {
+        updates.push({
+          field: "fullName",
+          value,
+          intent: "NEW",
+          confidence: "CLEAR",
+        });
+      }
     } else if (input.currentState.fullName.status === "UNKNOWN") {
       const nameMatch = rawText.match(
         /(?:my\s+(?:full\s+)?(?:legal\s+)?name\s+is|i\s+am|i'm)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*?)(?:\s+(?:and\s+)?(?:i\s+have|my\s+executor|i\s+live|my\s+address|worldwide)|\s+and\s+|[.,;]|$)/i,
@@ -253,77 +261,72 @@ export class MockLLMClient implements LLMClient {
     }
 
     // --- 2. Children Information Extraction ---
-    const hasChildrenNegative =
-      /(?:i\s+(?:do\s+not|don't)\s+have|no|none)\s+(?:any\s+)?(?:children|kids)\b/i.test(
-        rawText,
-      ) ||
-      (activeField === "hasChildren" &&
-        /^(?:no|none|false|nope|n\b|don't|not\b|no children)/i.test(rawText));
+    const isChildrenMentioned =
+      /(?:children|kids|child|daughter|son)/i.test(rawText) ||
+      activeField === "hasChildren" ||
+      activeField === "children";
 
-    if (hasChildrenNegative) {
-      updates.push({
-        field: "hasChildren",
-        value: false,
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
-      updates.push({
-        field: "childrenCount",
-        value: 0,
-        intent: "NEW",
-        confidence: "CLEAR",
-      });
-    } else {
-      const wordToNum: Record<string, number> = {
-        one: 1,
-        two: 2,
-        three: 3,
-        four: 4,
-        five: 5,
-        six: 6,
-        seven: 7,
-        eight: 8,
-        nine: 9,
-        ten: 10,
-      };
-      const countRegex =
-        /(?:i\s+have\s+|there\s+are\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:children|kids)/i;
-      const countMatch = rawText.match(countRegex);
-
-      const hasChildrenAffirmative =
-        Boolean(countMatch) ||
-        /(?:i\s+have\s+children|i\s+have\s+kids)/i.test(rawText) ||
+    if (isChildrenMentioned) {
+      const hasChildrenNegative =
+        /(?:i\s+(?:do\s+not|don't)\s+have|no|none)\s+(?:any\s+)?(?:children|kids)\b/i.test(
+          rawText,
+        ) ||
         (activeField === "hasChildren" &&
-          /^(?:yes|true|yep|y\b|i\s+do)/i.test(rawText));
+          /^(?:no|none|false|nope|n\b|don't|not\b|no children)/i.test(rawText));
 
-      if (countMatch) {
-        const count =
-          wordToNum[countMatch[1].toLowerCase()] ?? parseInt(countMatch[1], 10);
+      if (hasChildrenNegative) {
         updates.push({
           field: "hasChildren",
-          value: true,
+          value: false,
           intent: "NEW",
           confidence: "CLEAR",
         });
         updates.push({
           field: "childrenCount",
-          value: count,
+          value: 0,
           intent: "NEW",
           confidence: "CLEAR",
         });
-      } else if (hasChildrenAffirmative) {
-        updates.push({
-          field: "hasChildren",
-          value: true,
-          intent: "NEW",
-          confidence: "CLEAR",
-        });
-      }
+      } else {
+        const wordToNum: Record<string, number> = {
+          one: 1,
+          two: 2,
+          three: 3,
+          four: 4,
+          five: 5,
+          six: 6,
+          seven: 7,
+          eight: 8,
+          nine: 9,
+          ten: 10,
+        };
+        const countRegex =
+          /(?:i\s+have\s+|there\s+are\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:children|kids|child|kid)/i;
+        const countMatch = rawText.match(countRegex);
 
-      // Child names and relationships
-      const extractedChildren = parseChildrenFromText(rawText, activeField);
-      if (extractedChildren.length > 0) {
-        if (!updates.some((u) => u.field === "hasChildren")) {
+        const hasChildrenAffirmative =
+          Boolean(countMatch) ||
+          /(?:i\s+have\s+(?:children|kids|a\s+child|a\s+kid))/i.test(rawText) ||
+          (activeField === "hasChildren" &&
+            /^(?:yes|true|yep|y\b|i\s+do|i\s+have|one|two)/i.test(rawText));
+
+        if (countMatch) {
+          const count =
+            wordToNum[countMatch[1].toLowerCase()] ??
+            parseInt(countMatch[1], 10);
+          updates.push({
+            field: "hasChildren",
+            value: true,
+            intent: "NEW",
+            confidence: "CLEAR",
+          });
+          updates.push({
+            field: "childrenCount",
+            value: count,
+            intent: "NEW",
+            confidence: "CLEAR",
+          });
+        } else if (hasChildrenAffirmative) {
           updates.push({
             field: "hasChildren",
             value: true,
@@ -331,27 +334,40 @@ export class MockLLMClient implements LLMClient {
             confidence: "CLEAR",
           });
         }
-        updates.push({
-          field: "children",
-          value: extractedChildren,
-          intent: "NEW",
-          confidence: "CLEAR",
-        });
-        if (!updates.some((u) => u.field === "childrenCount")) {
+
+        // Child names and relationships
+        const extractedChildren = parseChildrenFromText(rawText, activeField);
+        if (extractedChildren.length > 0) {
+          if (!updates.some((u) => u.field === "hasChildren")) {
+            updates.push({
+              field: "hasChildren",
+              value: true,
+              intent: "NEW",
+              confidence: "CLEAR",
+            });
+          }
           updates.push({
-            field: "childrenCount",
-            value: extractedChildren.length,
+            field: "children",
+            value: extractedChildren,
+            intent: "NEW",
+            confidence: "CLEAR",
+          });
+          if (!updates.some((u) => u.field === "childrenCount")) {
+            updates.push({
+              field: "childrenCount",
+              value: extractedChildren.length,
+              intent: "NEW",
+              confidence: "CLEAR",
+            });
+          }
+        } else if (activeField === "children") {
+          updates.push({
+            field: "children",
+            value: ["Sarah Dent", "John Dent"],
             intent: "NEW",
             confidence: "CLEAR",
           });
         }
-      } else if (activeField === "children") {
-        updates.push({
-          field: "children",
-          value: ["Sarah Dent", "John Dent"],
-          intent: "NEW",
-          confidence: "CLEAR",
-        });
       }
     }
 
@@ -375,13 +391,17 @@ export class MockLLMClient implements LLMClient {
     const isRelationshipOnly =
       relMatch !== null &&
       new RegExp(
-        `^(?:it(?:'s|\\s+is)\\s+)?(?:my\\s+)?(?:${relWordsPattern})(?:\\s+(?:will\\s+be\\s+my\\s+executor|is\\s+my\\s+executor))?[.,!]?$`,
+        `^(?:my\\s+executor\\s+(?:is|will\\s+be)\\s+(?:my\\s+)?(?:${relWordsPattern})|(?:it(?:'s|\\s+is)\\s+)?(?:my\\s+)?(?:${relWordsPattern})(?:\\s+(?:will\\s+be\\s+my\\s+executor|is\\s+my\\s+executor))?)[.,!]?$`,
         "i",
       ).test(rawText.trim());
 
     if (executorNameMatch && !isRelationshipOnly) {
       const rawName = executorNameMatch[1].trim();
       const cleanName = rawName
+        .replace(
+          /^(?:his|her|their|my)\s+(?:name\s+is|full\s+name\s+is)\s+/i,
+          "",
+        )
         .replace(
           new RegExp(
             `^(?:my\\s+)?(?:${relWordsPattern})\\s+(?:named\\s+|called\\s+)?`,
@@ -404,6 +424,7 @@ export class MockLLMClient implements LLMClient {
           /^(?:my executor is|executor is|appointed executor is|it is|it's)\s+/i,
           "",
         )
+        .replace(/^(?:his|her|their|my)\s+(?:(?:full\s+)?name\s+is)\s+/i, "")
         .replace(
           new RegExp(
             `^(?:my\\s+)?(?:${relWordsPattern})\\s+(?:named\\s+|called\\s+)?`,
@@ -664,12 +685,12 @@ export class MockLLMClient implements LLMClient {
       nextQuestionPrompt: input.nextQuestionPrompt,
     });
 
-    if (this.textQueue.length > 0) {
-      const item = this.textQueue.shift()!;
-      if (item.kind === "error") {
-        throw item.error;
+    const queuedText = this.textQueue.shift();
+    if (queuedText) {
+      if (queuedText.kind === "error") {
+        throw queuedText.error;
       }
-      return item.data;
+      return queuedText.data;
     }
 
     if (this.customTextGenerator) {
@@ -711,6 +732,10 @@ export class MockLLMClient implements LLMClient {
 function capitalizeWord(s: string): string {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+function capitalizeName(s: string): string {
+  return s.split(/\s+/).filter(Boolean).map(capitalizeWord).join(" ");
 }
 
 function normalizeInputText(text: string): string {
@@ -793,6 +818,49 @@ export function isNonAnswer(text: string): boolean {
 }
 
 /**
+ * Returns true if the text is a pure conversational opener / greeting with no
+ * domain-relevant content. These messages contain no extractable facts and the
+ * assistant should simply re-ask the current pending question.
+ */
+export function isGreetingOrChitChat(text: string): boolean {
+  const norm = normalizeInputText(text);
+  const greetingPatterns = [
+    /^hi+$/,
+    /^hey+$/,
+    /^hello+$/,
+    /^helo+$/,
+    /^hiya$/,
+    /^howdy$/,
+    /^greetings$/,
+    /^yo$/,
+    /^sup$/,
+    /^wassup$/,
+    /^whats up$/,
+    /^good morning$/,
+    /^good afternoon$/,
+    /^good evening$/,
+    /^good day$/,
+    /^how are you(?:.*)?$/,
+    /^how do you do(?:.*)?$/,
+    /^nice to meet you(?:.*)?$/,
+    /^pleased to meet you(?:.*)?$/,
+    /^hi there$/,
+    /^hey there$/,
+    /^hello there$/,
+    /^ok$/,
+    /^okay$/,
+    /^sure$/,
+    /^alright$/,
+    /^ok lets begin$/,
+    /^lets start$/,
+    /^lets begin$/,
+    /^yes lets begin$/,
+    /^yes lets start$/,
+  ];
+  return greetingPatterns.some((p) => p.test(norm));
+}
+
+/**
  * Extracts only the full legal name fact from a user message, excluding unrelated clauses
  * and ensuring proper capitalization.
  */
@@ -844,15 +912,27 @@ function extractNameFact(rawText: string): string {
     )
     .trim();
 
-  // If isolated is non-empty and contains words
+  // Known greetings / stop-words that cannot be a legal name component
+  const nameStopWords =
+    /^(?:hi|hey|hello|hiya|howdy|greetings|yo|sup|ok|okay|sure|alright|thanks|thank|bye|goodbye|yes|no|sure|start|begin)$/i;
+
+  // If isolated is non-empty, contains at least 2 real name-words, and none are stop-words
   const words = isolated
     .split(/\s+/)
-    .filter((w) => w.length > 0 && !/^(?:and|i|have|the|with)$/i.test(w));
-  if (words.length > 0) {
+    .filter(
+      (w) =>
+        w.length > 0 &&
+        !/^(?:and|i|have|the|with)$/i.test(w) &&
+        !nameStopWords.test(w),
+    );
+
+  // A legal full name requires at least 2 words (first + last). Single generic words
+  // (including stray greetings that slip through) are rejected.
+  if (words.length >= 2) {
     return words.map(capitalizeWord).join(" ");
   }
 
-  return "Arthur Dent";
+  return "";
 }
 
 /**
@@ -902,6 +982,29 @@ function parseChildrenFromText(
       !["is", "the", "my", "name", "a"].includes(name.toLowerCase())
     ) {
       result.push(`${capitalizeWord(name)} (son)`);
+    }
+  }
+
+  // 3. Pronoun-based child name patterns like "his/her/their name is John"
+  // (Only when activeField is children/hasChildren or child context is explicitly present in text)
+  const isChildContext =
+    activeField === "children" ||
+    activeField === "hasChildren" ||
+    /(?:children|kids|son|daughter|child)/i.test(text);
+
+  if (isChildContext) {
+    const pronounNameMatch = text.match(
+      /(?:his|her|their)\s+name\s+(?:is|=|:)\s*([A-Za-z]+(?:\s+[A-Za-z]+)*)/i,
+    );
+
+    if (pronounNameMatch) {
+      const name = pronounNameMatch[1].replace(/\.$/, "").trim();
+      if (
+        name &&
+        !["is", "the", "my", "name", "a"].includes(name.toLowerCase())
+      ) {
+        result.push(capitalizeName(name));
+      }
     }
   }
 

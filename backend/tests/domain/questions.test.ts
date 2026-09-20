@@ -13,7 +13,6 @@ import {
   QUESTION_CATALOG,
   QUESTION_IDS,
   QUESTION_ORDER,
-  QuestionId,
   selectNextQuestion,
 } from "../../src/domain";
 

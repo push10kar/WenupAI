@@ -63,6 +63,9 @@ describe("Phase 13: InterviewService with Real Provider Adapters", () => {
     });
 
     expect(result.status).toBe("QUESTION");
+    if (result.status !== "QUESTION") {
+      throw new Error("expected QUESTION");
+    }
     expect(result.state.fullName.status).toBe("CONFIRMED");
     expect(result.state.fullName.value).toBe("John Watson");
     expect(result.assistantMessage).toContain("address");

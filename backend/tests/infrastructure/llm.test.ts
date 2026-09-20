@@ -13,7 +13,8 @@ import {
   LLMExtractionResult,
   Message,
   MockLLMClient,
-  ResponseGenerationInput,
+  buildExtractionPrompt,
+  buildResponsePrompt,
 } from "../../src/infrastructure";
 
 describe("Phase 8: Deterministic Mock LLM Client", () => {
@@ -508,5 +509,39 @@ describe("Phase 8: Deterministic Mock LLM Client", () => {
       // Invariant: Zero state mutation on conflict
       expect(state.fullName.value).toBe("Arthur Dent");
     });
+  });
+});
+
+describe("Provider prompt privacy boundary", () => {
+  it("uses structured state instead of conversation history for extraction and response prompts", () => {
+    const state = createInitialState();
+    const conversation = [
+      {
+        id: "history-1",
+        role: "user" as const,
+        content: "PRIVATE_HISTORY_SHOULD_NOT_REACH_PROVIDER",
+        createdAt: "2026-09-21T00:00:00.000Z",
+      },
+    ];
+
+    const extractionPrompt = buildExtractionPrompt({
+      currentState: state,
+      conversation,
+      latestUserMessage: "My name is Arthur Dent",
+    });
+    const responsePrompt = buildResponsePrompt({
+      currentState: state,
+      conversation,
+      latestUserMessage: "My name is Arthur Dent",
+      nextQuestionPrompt: "What is your current home address?",
+    });
+
+    for (const prompt of [extractionPrompt, responsePrompt]) {
+      expect(prompt).toContain('"fullName"');
+      expect(prompt).toContain("My name is Arthur Dent");
+      expect(prompt).not.toContain("PRIVATE_HISTORY_SHOULD_NOT_REACH_PROVIDER");
+      expect(prompt).not.toContain("CONVERSATION SO FAR");
+      expect(prompt).not.toContain("RECENT CONVERSATION");
+    }
   });
 });

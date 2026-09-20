@@ -6,19 +6,19 @@ import {
 } from "./types";
 import { LLMClientError } from "./errors";
 
+export type FallbackLLMOperation = "extractUpdates" | "generateResponse";
+
 export interface FallbackLLMClientConfig {
   readonly primary: LLMClient;
   readonly fallback: LLMClient;
-  readonly onFallback?: (
-    error: Error,
-    operation: "extractUpdates" | "generateResponse",
-  ) => void;
+  readonly onFallback?: (error: Error, operation: FallbackLLMOperation) => void;
+  readonly onPrimarySuccess?: (operation: FallbackLLMOperation) => void;
 }
 
 /**
  * FallbackLLMClient implements the Fallback Decorator pattern for LLM providers.
  *
- * It delegates operations to a primary provider (e.g. Gemini), and if that provider
+ * It delegates operations to a primary provider (e.g. OpenRouter), and if that provider
  * fails due to quota exhaustion, rate limits (HTTP 429), or temporary unavailability,
  * it seamlessly and automatically shifts to a fallback provider (e.g. MockLLMClient).
  *
@@ -32,13 +32,15 @@ export class FallbackLLMClient implements LLMClient {
   readonly fallback: LLMClient;
   private readonly onFallback?: (
     error: Error,
-    operation: "extractUpdates" | "generateResponse",
+    operation: FallbackLLMOperation,
   ) => void;
+  private readonly onPrimarySuccess?: (operation: FallbackLLMOperation) => void;
 
   constructor(config: FallbackLLMClientConfig) {
     this.primary = config.primary;
     this.fallback = config.fallback;
     this.onFallback = config.onFallback;
+    this.onPrimarySuccess = config.onPrimarySuccess;
   }
 
   async extractUpdates(
@@ -46,7 +48,7 @@ export class FallbackLLMClient implements LLMClient {
   ): Promise<LLMExtractionResult> {
     try {
       const result = await this.primary.extractUpdates(input);
-      console.log("[LLM] Candidate updates extracted using Gemini.");
+      this.onPrimarySuccess?.("extractUpdates");
       return result;
     } catch (err: unknown) {
       if (this.shouldFallback(err)) {
@@ -60,7 +62,7 @@ export class FallbackLLMClient implements LLMClient {
   async generateResponse(input: ResponseGenerationInput): Promise<string> {
     try {
       const response = await this.primary.generateResponse(input);
-      console.log("[LLM] Assistant response generated using Gemini.");
+      this.onPrimarySuccess?.("generateResponse");
       return response;
     } catch (err: unknown) {
       if (this.shouldFallback(err)) {
@@ -82,14 +84,20 @@ export class FallbackLLMClient implements LLMClient {
         err.code === "PROVIDER_RATE_LIMIT" ||
         err.code === "PROVIDER_UNAVAILABLE" ||
         err.code === "PROVIDER_TIMEOUT" ||
+        err.code === "PROVIDER_AUTH_ERROR" ||
+        err.code === "PROVIDER_ERROR" ||
+        err.status === 401 ||
+        err.status === 403 ||
         err.status === 429 ||
         err.status === 503 ||
-        /quota|exhausted|rate limit|too many requests/i.test(err.message)
+        /quota|exhausted|rate limit|too many requests|unauthorized|invalid api key|auth/i.test(
+          err.message,
+        )
       );
     }
 
     if (err instanceof Error) {
-      return /quota|exhausted|rate limit|429|too many requests/i.test(
+      return /quota|exhausted|rate limit|429|too many requests|unauthorized|auth|503/i.test(
         err.message,
       );
     }
@@ -99,14 +107,14 @@ export class FallbackLLMClient implements LLMClient {
 
   private notifyFallback(
     err: unknown,
-    operation: "extractUpdates" | "generateResponse",
+    operation: FallbackLLMOperation,
   ): void {
     const errorObj = err instanceof Error ? err : new Error(String(err));
     if (this.onFallback) {
       this.onFallback(errorObj, operation);
     } else {
       console.warn(
-        `[LLM Fallback] Primary provider failed on ${operation} (${errorObj.message}). Automatically switching to MockLLM.`,
+        `[LLM Fallback] Primary provider failed on ${operation} (${errorObj.message}). Automatically switching to fallback LLM provider.`,
       );
     }
   }

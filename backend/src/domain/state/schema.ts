@@ -1,11 +1,5 @@
 import { z } from "zod";
-import {
-  FIELD_STATUSES,
-  FieldStatus,
-  Field,
-  Executor,
-  PersonalWishesState,
-} from "./types";
+import { FIELD_STATUSES, PersonalWishesState } from "./types";
 
 /**
  * Runtime schema for FieldStatus enum.

@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import type { RequestListener } from "http";
 import { createApp } from "./api";
 
 const fastifyApp = createApp();
@@ -22,6 +23,6 @@ export const app = new Proxy(handler, {
     ];
     return typeof val === "function" ? val.bind(fastifyApp) : val;
   },
-}) as unknown as FastifyInstance;
+}) as unknown as FastifyInstance & RequestListener;
 
 export { createApp };
