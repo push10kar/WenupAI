@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 interface LandingViewProps {
   onEnterWorkspace?: () => void;
@@ -10,6 +10,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
   const [activeNav, setActiveNav] = useState<
     "overview" | "features" | "solutions"
   >("overview");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const handleLaunch = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -176,64 +180,124 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 </a>
               </div>
 
-              {/* Demo screenshot with pause button overlay */}
+              {/* Demo video with custom play/pause overlay + seek bar */}
               <div
-                className="relative mb-space-xl aspect-video w-full max-w-5xl rounded-2xl border-[6px] border-primary-container overflow-hidden"
+                className="relative mb-space-xl w-full max-w-5xl rounded-2xl border-[6px] border-primary-container overflow-hidden bg-black"
                 aria-label="Demo preview"
               >
-                <img
-                  src="/demo-screenshot.png"
-                  alt="Application demo"
-                  className="w-full h-full object-cover object-top"
-                />
-                {/* Centered pause button */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <button
-                    aria-label="Pause demo"
-                    className="flex items-center justify-center w-16 h-16 rounded-full bg-[#4E1FBE] shadow-[0_8px_32px_-4px_rgba(78,31,190,0.5)] transition-transform duration-200 hover:scale-105 active:scale-95"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="#EAFF57"
-                      width="28"
-                      height="28"
-                      aria-hidden="true"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                {/* Video — no native controls */}
+                <div className="aspect-video w-full relative">
+                  <video
+                    ref={videoRef}
+                    src="/demo.mp4"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-contain cursor-pointer"
+                    aria-label="Application demo video"
+                    onClick={() => {
+                      const vid = videoRef.current;
+                      if (!vid) return;
+                      if (vid.paused) {
+                        vid.play();
+                        setIsPlaying(true);
+                      } else {
+                        vid.pause();
+                        setIsPlaying(false);
+                      }
+                    }}
+                    onLoadedMetadata={() => {
+                      if (videoRef.current)
+                        setDuration(videoRef.current.duration);
+                    }}
+                    onTimeUpdate={() => {
+                      if (videoRef.current)
+                        setCurrentTime(videoRef.current.currentTime);
+                    }}
+                    onEnded={() => setIsPlaying(false)}
+                  />
 
-              {/* Trust Indicator / Metric Ribbon */}
-              <div className="w-full max-w-4xl flex flex-wrap items-center justify-around gap-space-lg py-space-md px-space-lg bg-surface-white/60 rounded-2xl mb-space-xl text-center">
-                <div>
-                  <div className="font-headline-md text-headline-md text-primary-container font-bold">
-                    100k+
-                  </div>
-                  <div className="font-label-sm text-label-sm text-outline">
-                    Active Canvases Built
+                  {/* Purple circle play/pause overlay */}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
+                      isPlaying ? "opacity-0 hover:opacity-100" : "opacity-100"
+                    }`}
+                  >
+                    <button
+                      aria-label={isPlaying ? "Pause demo" : "Play demo"}
+                      className="flex items-center justify-center w-16 h-16 rounded-full bg-[#4E1FBE] shadow-[0_8px_32px_-4px_rgba(78,31,190,0.5)] transition-transform duration-200 hover:scale-105 active:scale-95"
+                      onClick={() => {
+                        const vid = videoRef.current;
+                        if (!vid) return;
+                        if (vid.paused) {
+                          vid.play();
+                          setIsPlaying(true);
+                        } else {
+                          vid.pause();
+                          setIsPlaying(false);
+                        }
+                      }}
+                    >
+                      {isPlaying ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="#EAFF57"
+                          width="28"
+                          height="28"
+                          aria-hidden="true"
+                        >
+                          <rect x="6" y="5" width="4" height="14" rx="1" />
+                          <rect x="14" y="5" width="4" height="14" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="#EAFF57"
+                          width="28"
+                          height="28"
+                          aria-hidden="true"
+                        >
+                          <polygon points="6,4 20,12 6,20" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <div className="hidden sm:block w-px h-8 bg-tint-purple" />
-                <div>
-                  <div className="font-headline-md text-headline-md text-primary-container font-bold">
-                    0ms
-                  </div>
-                  <div className="font-label-sm text-label-sm text-outline">
-                    Offline-to-Cloud Friction
-                  </div>
-                </div>
-                <div className="hidden sm:block w-px h-8 bg-tint-purple" />
-                <div>
-                  <div className="font-headline-md text-headline-md text-primary-container font-bold">
-                    4.9/5
-                  </div>
-                  <div className="font-label-sm text-label-sm text-outline">
-                    Designer Satisfaction Rating
-                  </div>
+
+                {/* Seek bar + time — sits below the video inside the card */}
+                <div className="flex items-center gap-3 px-4 py-3 bg-[#1a0047]">
+                  {/* Seek input */}
+                  <input
+                    type="range"
+                    min={0}
+                    max={duration || 100}
+                    step={0.1}
+                    value={currentTime}
+                    aria-label="Video seek bar"
+                    className="flex-1 h-1.5 appearance-none rounded-full cursor-pointer accent-[#EAFF57]"
+                    style={{
+                      background: duration
+                        ? `linear-gradient(to right, #EAFF57 ${(currentTime / duration) * 100}%, rgba(255,255,255,0.2) 0%)`
+                        : "rgba(255,255,255,0.2)",
+                    }}
+                    onChange={(e) => {
+                      const t = parseFloat(e.target.value);
+                      if (videoRef.current) videoRef.current.currentTime = t;
+                      setCurrentTime(t);
+                    }}
+                  />
+                  {/* Time readout */}
+                  <span className="text-[#EAFF57] text-xs font-mono tabular-nums whitespace-nowrap select-none">
+                    {[currentTime, duration]
+                      .map((t) => {
+                        const m = Math.floor(t / 60);
+                        const s = Math.floor(t % 60);
+                        return `${m}:${s.toString().padStart(2, "0")}`;
+                      })
+                      .join(" / ")}
+                  </span>
                 </div>
               </div>
 
