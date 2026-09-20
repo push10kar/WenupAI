@@ -1,136 +1,164 @@
-# Document Intake Assistant
+# WenupAI — Document Intake Assistant
 
-A conversational web application that conducts an interview with a user, extracts structured personal wishes data into an authoritative application domain state, and produces a deterministic draft Personal Wishes Document.
+A web app that interviews users through a conversational UI to collect their personal wishes (name, address, executor, children, gifts, etc.) and automatically generates a draft Personal Wishes Document.
 
-> **Current Status: Milestone 01 — Foundation**
->
-> This project is being constructed incrementally according to the architecture defined in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
-> Milestone 01 establishes the repository structure, backend Express baseline, frontend React/Vite shell, environment configuration, and Vitest test suite.
-> Subsequent milestones will implement the domain state machine, LLM integration, persistence, and interview UI.
+Built with **React + Vite** on the frontend and **Express + TypeScript** on the backend. Uses **Google Gemini** as the LLM provider, with an automatic fallback to a mock LLM when the free-tier quota runs out.
 
----
+## How It Works
+
+1. User opens the app and starts a new session.
+2. The assistant asks questions one by one (full name → address → worldwide assets → children → executor → gifts → additional wishes).
+3. Each user response is sent to the backend, where the LLM extracts structured data from the message.
+4. The extracted data goes through validation and conflict detection before updating the session state.
+5. Two live preview panels show the collected information (left) and the auto-generated draft document (right) in real time.
+6. When all required fields are filled, the interview is marked complete.
+
+## Tech Stack
+
+| Layer    | Tech                                             |
+| -------- | ------------------------------------------------ |
+| Frontend | React, Vite, TypeScript, Tailwind CSS, shadcn/ui |
+| Backend  | Express, TypeScript, Zod, SQLite                 |
+| LLM      | Google Gemini (with MockLLM fallback)            |
+| Testing  | Vitest                                           |
 
 ## Prerequisites
 
-- **Node.js**: `v20` or later (tested on `v22.x`)
-- **npm**: `v10` or later
+- **Node.js** v20+ (tested on v22)
+- **npm** v10+
+- A **Gemini API key** (free tier works — get one at [aistudio.google.com](https://aistudio.google.com))
 
----
+## Setup
 
-## Project Structure
+1. **Clone the repo**
 
-```text
-document-intake-assistant/
-├── ARCHITECTURE.md          # Architectural source of truth
-├── README.md                # Project documentation
-├── .env.example             # Template environment configuration
-├── .gitignore               # Git ignore rules
-├── package.json             # Root workspace package configuration
-├── vitest.config.ts         # Vitest test configuration
-├── backend/                 # Backend Node.js/TypeScript Express application
-│   ├── src/
-│   │   ├── app.ts           # Express application setup & middleware
-│   │   ├── config.ts        # Typed environment configuration
-│   │   └── index.ts         # Server entry point
-│   ├── tests/
-│   │   └── health.test.ts   # Backend health endpoint tests
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/                # Frontend React/Vite/TypeScript application
-│   ├── src/
-│   │   ├── App.tsx          # Application shell component
-│   │   ├── index.css        # Base stylesheet
-│   │   └── main.tsx         # React entry point
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
-└── tests/                   # Top-level smoke and integration tests
-    └── foundation.smoke.test.ts
-```
+   ```bash
+   git clone https://github.com/push10kar/WenupAI.git
+   cd WenupAI
+   ```
 
----
+2. **Install dependencies**
 
-## Installation
+   ```bash
+   npm install
+   ```
 
-Install all workspace dependencies from the root directory:
+3. **Configure environment**
 
-```bash
-npm install
-```
+   ```bash
+   cp .env.example .env
+   ```
 
----
+   Open `.env` and fill in your values:
 
-## Environment Configuration
+   ```env
+   # Server
+   PORT=3000
+   NODE_ENV=development
 
-Copy the sample environment file:
+   # LLM — set to "gemini" to use Gemini, or "mock" to skip the API entirely
+   LLM_PROVIDER=gemini
+   LLM_TIMEOUT_MS=15000
 
-```bash
-cp .env.example .env
-```
+   # Gemini
+   GEMINI_API_KEY=your_api_key_here
+   GEMINI_MODEL=gemini-2.0-flash
 
-Key environment variables:
+   # Auto-fallback to MockLLM when Gemini quota is exhausted (true/false)
+   ENABLE_LLM_FALLBACK=true
 
-- `PORT`: Port for the backend server (default: `3000`).
-- `NODE_ENV`: Application environment (`development` | `production` | `test`).
-- `LLM_PROVIDER`: LLM provider setting (`mock` | `gemini`). Defaults to `mock`; Gemini is the only external model provider.
+   # Database
+   DATABASE_PATH=./dev.sqlite
+   ```
 
----
+   > **Tip:** If you don't have a Gemini key yet, set `LLM_PROVIDER=mock` and the app will work with deterministic mock responses — no API key needed.
 
-## Running the Application
+## Running the App
 
-### Backend
-
-To start the backend in development mode (with hot reloading via `tsx`):
+Start both servers in separate terminals:
 
 ```bash
+# Terminal 1 — Backend (runs on http://localhost:3000)
 npm run dev:backend
-```
 
-The backend starts at `http://localhost:3000`. You can verify it with:
-
-```bash
-curl http://localhost:3000/health
-```
-
-Expected response:
-
-```json
-{ "status": "ok", "timestamp": "..." }
-```
-
-### Frontend
-
-To start the frontend development server:
-
-```bash
+# Terminal 2 — Frontend (runs on http://localhost:5173)
 npm run dev:frontend
 ```
 
-The frontend will be available at `http://localhost:5173`.
-
----
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Running Tests
 
-Run the test suite across the workspaces:
-
 ```bash
+# Run everything (backend + frontend + integration)
 npm test
+
+# Or run them individually
+npm --prefix backend run test     # 348 tests
+npm --prefix frontend run test    # 23 tests
 ```
 
----
-
-## Building the Project
-
-To compile both backend and frontend for production:
+## Building for Production
 
 ```bash
 npm run build
 ```
 
-To run TypeScript type checks across all workspaces:
+This compiles the backend TypeScript and builds the frontend with Vite.
+
+## Type Checking
 
 ```bash
 npm run typecheck
 ```
+
+## Project Structure
+
+```
+WenupAI/
+├── backend/
+│   ├── src/
+│   │   ├── domain/           # State machine, validation, conflict detection
+│   │   ├── application/      # Interview service, session management
+│   │   └── infrastructure/   # LLM clients (Gemini, Mock, Fallback), DB, routes
+│   └── tests/                # 348 tests (unit, integration, e2e scenarios)
+├── frontend/
+│   ├── src/
+│   │   ├── components/       # UI components (chat, previews, editor)
+│   │   ├── hooks/            # useInterview hook
+│   │   └── api/              # Backend API client
+│   └── tests/                # 23 tests
+├── .env.example              # Environment template
+└── ARCHITECTURE.md           # Detailed architecture doc
+```
+
+## Environment Variables
+
+| Variable              | Description                                | Default            |
+| --------------------- | ------------------------------------------ | ------------------ |
+| `PORT`                | Backend server port                        | `3000`             |
+| `NODE_ENV`            | `development` / `production` / `test`      | `development`      |
+| `LLM_PROVIDER`        | `gemini` or `mock`                         | `mock`             |
+| `GEMINI_API_KEY`      | Your Gemini API key                        | —                  |
+| `GEMINI_MODEL`        | Gemini model to use                        | `gemini-2.0-flash` |
+| `LLM_TIMEOUT_MS`      | Request timeout for LLM calls (ms)         | `15000`            |
+| `ENABLE_LLM_FALLBACK` | Auto-switch to MockLLM on quota exhaustion | `true`             |
+| `DATABASE_PATH`       | Path to SQLite database file               | `./dev.sqlite`     |
+
+## About the Fallback System
+
+When using the Gemini free tier, the API quota can run out pretty fast. Instead of crashing, the app automatically detects quota errors (HTTP 429) and switches to MockLLM so the interview can continue. When the quota resets, it goes right back to using Gemini — no restart needed.
+
+The UI shows a small note when this happens so the user knows.
+
+## What Could Be Better
+
+- **Streaming responses** — right now it waits for the full LLM response before showing anything. Streaming would feel faster.
+- **Auth** — sessions are just UUIDs in localStorage. Real auth would let users resume across devices.
+- **Better database** — SQLite works fine for dev but Postgres would be needed for production.
+- **PDF export** — people probably want to print or share their document.
+- **Retry with backoff** — the fallback handles quota errors, but a proper retry strategy with exponential backoff would be more robust.
+
+---
+
+Made with ☕ and too many late nights.

@@ -176,11 +176,36 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 </a>
               </div>
 
-              {/* Empty demo-video placeholder. */}
+              {/* Demo screenshot with pause button overlay */}
               <div
-                className="mb-space-xl aspect-video w-full max-w-5xl rounded-2xl border-[6px] border-primary-container bg-surface-white"
-                aria-label="Demo video placeholder"
-              />
+                className="relative mb-space-xl aspect-video w-full max-w-5xl rounded-2xl border-[6px] border-primary-container overflow-hidden"
+                aria-label="Demo preview"
+              >
+                <img
+                  src="/demo-screenshot.png"
+                  alt="Application demo"
+                  className="w-full h-full object-cover object-top"
+                />
+                {/* Centered pause button */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <button
+                    aria-label="Pause demo"
+                    className="flex items-center justify-center w-16 h-16 rounded-full bg-[#4E1FBE] shadow-[0_8px_32px_-4px_rgba(78,31,190,0.5)] transition-transform duration-200 hover:scale-105 active:scale-95"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="#EAFF57"
+                      width="28"
+                      height="28"
+                      aria-hidden="true"
+                    >
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
               {/* Trust Indicator / Metric Ribbon */}
               <div className="w-full max-w-4xl flex flex-wrap items-center justify-around gap-space-lg py-space-md px-space-lg bg-surface-white/60 rounded-2xl mb-space-xl text-center">

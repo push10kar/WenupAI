@@ -238,6 +238,9 @@ describe("Two-Page Flow & Workspace Card", () => {
       // Submit message
       fireEvent.click(sendButton);
 
+      // User's response is rendered immediately (optimistic UI update)
+      expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+
       await waitFor(() => {
         expect(sessionApi.sendMessage).toHaveBeenCalledWith(
           "session-1",

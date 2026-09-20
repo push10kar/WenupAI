@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Session, ApiError } from "../types";
+import { Session, ApiError, Message } from "../types";
 import { sessionApi, ApiClientError } from "../api";
 
 export interface UseInterviewReturn {
@@ -105,14 +105,32 @@ export function useInterview(): UseInterviewReturn {
         return;
       }
 
+      // Optimistically add the user's message immediately so it renders before the assistant's typing animation
+      const optimisticMessage: Message = {
+        id: `optimistic-${Date.now()}`,
+        role: "user",
+        content: text,
+        createdAt: new Date().toISOString(),
+      };
+
+      const previousSession = session;
+      setSession({
+        ...session,
+        messages: [...session.messages, optimisticMessage],
+      });
+
+      setInput("");
       setIsLoading(true);
       setError(null);
 
       try {
         const response = await sessionApi.sendMessage(session.id, text);
         setSession(response.session);
-        setInput(""); // Only clear input on success
       } catch (err) {
+        // Rollback optimistic message and restore typed input on error
+        setSession(previousSession);
+        setInput(text);
+
         if (err instanceof ApiClientError) {
           setError({ code: err.code, message: err.message });
         } else {

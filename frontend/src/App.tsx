@@ -14,7 +14,7 @@ import {
   MessageContent,
   MessageHeader,
 } from "@/components/ui/message";
-import { Moon, RotateCcw, Send, Sun } from "lucide-react";
+import { Info, Moon, RotateCcw, Send, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const isReloadNavigation = (): boolean => {
@@ -407,6 +407,16 @@ export const App: React.FC<AppProps> = ({ initialShowOverview }) => {
                   </form>
                 </div>
               </div>
+
+              {/* Notice below conversation card explaining automatic mock fallback */}
+              <p className="w-full flex items-center justify-center gap-1.5 text-center text-xs text-[#797482] font-medium tracking-wide -mt-2">
+                <Info className="size-3.5 shrink-0 text-[#4E1FBE]" />
+                <span>
+                  Note: When the Gemini free-tier quota is reached, the
+                  assistant automatically switches to MockLLM so your interview
+                  continues uninterrupted.
+                </span>
+              </p>
             </div>
 
             {/* Two Side-by-Side Column Cards — Left: Live Structured State, Right: Draft Document */}
