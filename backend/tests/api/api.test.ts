@@ -566,5 +566,163 @@ describe("Phase 11: Fastify API Layer", () => {
       expect(body.error.code).toBe("BAD_REQUEST");
       expect(body.error.stack).toBeUndefined();
     });
+
+    it("safely handles large message payloads without crashing or corrupting state", async () => {
+      const session = await repo.createSession();
+      const largeContent = "My name is Arthur Dent. ".repeat(4000); // ~96KB
+
+      mockLLM.queueExtractionResult({
+        updates: [
+          {
+            field: "fullName",
+            value: "Arthur Dent",
+            intent: "NEW",
+            confidence: "CLEAR",
+          },
+        ],
+      });
+      mockLLM.queueTextResponse("Thank you Arthur, your name is saved.");
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/sessions/${session.id}/messages`,
+        payload: {
+          content: largeContent,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.session.state.fullName.value).toBe("Arthur Dent");
+      expect(body.session.state.fullName.status).toBe("CONFIRMED");
+    });
+
+    it("safely rejects malformed URL parameters with 400 Bad Request", async () => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/sessions/%20%20/messages",
+        payload: {
+          content: "Hello",
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json();
+      expect(body.error.code).toBe("BAD_REQUEST");
+      expect(body.error.message).toContain("Invalid session ID parameter");
+    });
+
+    it("detects optimistic concurrency conflicts when state version does not match expected", async () => {
+      const session = await repo.createSession();
+
+      // State starts at version 1. Simulate an out-of-sync update expecting version 99
+      const updatePromise = repo.updateState(
+        session.id,
+        session.state,
+        99, // expectedVersion mismatch
+      );
+
+      await expect(updatePromise).rejects.toThrow();
+      await expect(updatePromise).rejects.toMatchObject({
+        code: "CONCURRENCY_CONFLICT",
+      });
+    });
+
+    it("runs a multi-turn interview to full completion and generates the complete draft document", async () => {
+      const completeLLM = new MockLLMClient({
+        extractionResponses: [
+          {
+            updates: [
+              {
+                field: "fullName",
+                value: "Arthur Dent",
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "homeAddress",
+                value: "Cottington Lane, UK",
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "coversWorldwideAssets",
+                value: true,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "hasChildren",
+                value: false,
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "executor.name",
+                value: "Ford Prefect",
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "executor.relationship",
+                value: "Friend",
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "specificGifts",
+                value: ["Towel to Ford"],
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+              {
+                field: "additionalWishes",
+                value: "Don't Panic",
+                intent: "NEW",
+                confidence: "CLEAR",
+              },
+            ],
+          },
+        ],
+        textResponses: [
+          "All required information has been collected. Your draft document is ready.",
+        ],
+      });
+
+      const completeService = new InterviewService({
+        llmClient: completeLLM,
+        sessionRepository: repo,
+      });
+
+      const completeApp = createApp({
+        interviewService: completeService,
+        sessionRepository: repo,
+        llmClient: completeLLM,
+      });
+
+      const session = await repo.createSession();
+
+      const res = await completeApp.inject({
+        method: "POST",
+        url: `/api/sessions/${session.id}/messages`,
+        payload: {
+          content: "Here are all my details...",
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.session.state.fullName.status).toBe("CONFIRMED");
+      expect(body.session.state.hasChildren.value).toBe(false);
+      expect(body.session.document.status).toBe("draft");
+      expect(body.session.document.content).toContain("Arthur Dent");
+      expect(body.session.document.content).toContain("Cottington Lane, UK");
+      expect(body.session.document.content).toContain(
+        "Worldwide Asset Coverage\nYes",
+      );
+      expect(body.session.document.content).toContain("Children\nNo");
+      expect(body.session.document.content).toContain("Ford Prefect");
+      expect(body.session.document.content).toContain("Don't Panic");
+    });
   });
 });

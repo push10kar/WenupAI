@@ -3,13 +3,15 @@ import request from "supertest";
 import { app } from "../src/app";
 
 describe("Backend Foundation - Health Check", () => {
-  it("GET /health returns 200 and status ok", async () => {
+  it("GET /health returns 200 and status ok with strict key allowlist", async () => {
     const response = await request(app).get("/health");
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("status", "ok");
     expect(response.body).toHaveProperty("timestamp");
     expect(typeof response.body.timestamp).toBe("string");
+    // Ensure no secrets, DB paths, or extra fields are leaked
+    expect(Object.keys(response.body).sort()).toEqual(["status", "timestamp"]);
   });
 
   it("GET /non-existent returns 404 with standard API error contract", async () => {
